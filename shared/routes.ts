@@ -1,9 +1,6 @@
 import { z } from 'zod';
-import { insertSongSchema, createRequestSchema, songs, requests, requestsRelations, requestSongs } from './schema';
+import { insertSongSchema, createRequestSchema, insertGuestMusicianSchema, songs, requests, guestMusicians } from './schema';
 
-// ============================================
-// SHARED ERROR SCHEMAS
-// ============================================
 export const errorSchemas = {
   validation: z.object({
     message: z.string(),
@@ -17,9 +14,6 @@ export const errorSchemas = {
   }),
 };
 
-// ============================================
-// API CONTRACT
-// ============================================
 export const api = {
   songs: {
     list: {
@@ -60,24 +54,16 @@ export const api = {
         404: errorSchemas.notFound,
       },
     },
-    search: { // Added for easier spotify lookup if we integrate later, but mainly for search bar
-        method: 'GET' as const,
-        path: '/api/songs/search',
-        input: z.object({ q: z.string() }),
-        responses: {
-            200: z.array(z.custom<typeof songs.$inferSelect>()),
-        }
-    }
   },
   requests: {
     list: {
       method: 'GET' as const,
-      path: '/api/requests', // Protected for band
+      path: '/api/requests',
       input: z.object({
           status: z.enum(['pending', 'approved', 'completed', 'rejected', 'all']).optional()
       }).optional(),
       responses: {
-        200: z.array(z.custom<any>()), // Typed as RequestWithSongs in implementation
+        200: z.array(z.custom<any>()),
       },
     },
     create: {
@@ -85,13 +71,13 @@ export const api = {
       path: '/api/requests',
       input: createRequestSchema,
       responses: {
-        201: z.custom<any>(), // Typed as RequestWithSongs
+        201: z.custom<any>(),
         400: errorSchemas.validation,
       },
     },
     updateStatus: {
       method: 'PATCH' as const,
-      path: '/api/requests/:id/status', // Protected for band
+      path: '/api/requests/:id/status',
       input: z.object({ status: z.enum(['pending', 'approved', 'completed', 'rejected']) }),
       responses: {
         200: z.custom<any>(),
@@ -99,19 +85,61 @@ export const api = {
       },
     },
     delete: {
-        method: 'DELETE' as const,
-        path: '/api/requests/:id',
-        responses: {
-            204: z.void(),
-            404: errorSchemas.notFound
-        }
-    }
+      method: 'DELETE' as const,
+      path: '/api/requests/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+  settings: {
+    get: {
+      method: 'GET' as const,
+      path: '/api/settings/:key',
+      responses: {
+        200: z.object({ value: z.string() }),
+        404: errorSchemas.notFound,
+      },
+    },
+    update: {
+      method: 'PATCH' as const,
+      path: '/api/settings/:key',
+      input: z.object({ value: z.string() }),
+      responses: {
+        200: z.object({ value: z.string() }),
+      },
+    },
+  },
+  guestMusicians: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/guest-musicians',
+      responses: {
+        200: z.array(z.custom<typeof guestMusicians.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/guest-musicians',
+      input: insertGuestMusicianSchema,
+      responses: {
+        201: z.custom<typeof guestMusicians.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    updateStatus: {
+      method: 'PATCH' as const,
+      path: '/api/guest-musicians/:id/status',
+      input: z.object({ status: z.enum(['pending', 'approved', 'completed', 'rejected']) }),
+      responses: {
+        200: z.custom<typeof guestMusicians.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
   },
 };
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
 export function buildUrl(path: string, params?: Record<string, string | number>): string {
   let url = path;
   if (params) {
@@ -123,9 +151,3 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
   }
   return url;
 }
-
-// ============================================
-// TYPE HELPERS
-// ============================================
-export type SongInput = z.infer<typeof api.songs.create.input>;
-export type RequestInput = z.infer<typeof api.requests.create.input>;

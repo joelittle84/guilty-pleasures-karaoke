@@ -92,6 +92,43 @@ export async function registerRoutes(
       res.status(204).send();
   });
 
+  // === Settings Routes ===
+  app.get(api.settings.get.path, async (req, res) => {
+    const value = await storage.getSetting(req.params.key);
+    if (value === undefined) return res.status(404).json({ message: "Setting not found" });
+    res.json({ value });
+  });
+
+  app.patch(api.settings.update.path, isAuthenticated, async (req, res) => {
+    const value = await storage.updateSetting(req.params.key, req.body.value);
+    res.json({ value });
+  });
+
+  // === Guest Musician Routes ===
+  app.get(api.guestMusicians.list.path, async (req, res) => {
+    const guests = await storage.getGuestMusicians();
+    res.json(guests);
+  });
+
+  app.post(api.guestMusicians.create.path, async (req, res) => {
+    try {
+      const input = api.guestMusicians.create.input.parse(req.body);
+      const guest = await storage.createGuestMusician(input);
+      res.status(201).json(guest);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch(api.guestMusicians.updateStatus.path, isAuthenticated, async (req, res) => {
+    const id = Number(req.params.id);
+    const guest = await storage.updateGuestMusicianStatus(id, req.body.status);
+    res.json(guest);
+  });
+
   await seedDatabase();
 
   return httpServer;

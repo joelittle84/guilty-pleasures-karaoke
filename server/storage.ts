@@ -1,9 +1,10 @@
 import { db } from "./db";
 import {
-  songs, requests, requestSongs, users,
+  songs, requests, requestSongs, users, settings, guestMusicians,
   type Song, type InsertSong, type UpdateSongRequest,
   type Request, type CreateRequestInput, type RequestWithSongs,
-  type UpdateRequestStatusInput, type User, type UpsertUser
+  type UpdateRequestStatusInput, type User, type UpsertUser,
+  type Setting, type GuestMusician, type CreateGuestMusicianInput
 } from "@shared/schema";
 import { eq, ilike, desc, inArray, and } from "drizzle-orm";
 import { IAuthStorage } from "./replit_integrations/auth/storage";
@@ -21,6 +22,15 @@ export interface IStorage extends IAuthStorage {
   createRequest(input: CreateRequestInput): Promise<RequestWithSongs>;
   updateRequestStatus(id: number, status: string): Promise<RequestWithSongs>;
   deleteRequest(id: number): Promise<void>;
+
+  // Settings
+  getSetting(key: string): Promise<string | undefined>;
+  updateSetting(key: string, value: string): Promise<string>;
+
+  // Guest Musicians
+  getGuestMusicians(): Promise<GuestMusician[]>;
+  createGuestMusician(input: CreateGuestMusicianInput): Promise<GuestMusician>;
+  updateGuestMusicianStatus(id: number, status: string): Promise<GuestMusician>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -47,43 +57,11 @@ export class DatabaseStorage implements IStorage {
 
   // === Song Methods ===
   async getSongs(search?: string, activeOnly: boolean = true): Promise<Song[]> {
-    const conditions = [];
-    if (activeOnly) {
-      conditions.push(eq(songs.isActive, true));
-    }
-    if (search) {
-      const searchLower = `%${search.toLowerCase()}%`;
-      // Simple search on title or artist
-      conditions.push(
-        and(
-            // Since we want OR logic for search but AND with isActive, we need to be careful.
-            // But simplify: Filter in memory or use complex ORM logic. 
-            // Drizzle `or` needs to be imported.
-            // Let's do a raw simplified query construction or separate calls if needed.
-            // Actually, for MVP, let's just search title/artist if provided.
-        )
-      );
-      // Re-doing with correct Drizzle OR logic
-      return await db.select().from(songs).where(
-        activeOnly 
-          ? and(
-              eq(songs.isActive, true), 
-              // or(ilike(songs.title, searchLower), ilike(songs.artist, searchLower)) 
-              // To avoid complex imports right now, let's just fetch and filter or assume basic list.
-              // We'll implement robust search in the route handler or here properly.
-          )
-          : undefined
-      ).orderBy(desc(songs.createdAt));
-    }
-    
-    // Basic implementation
     let query = db.select().from(songs);
     if (activeOnly) {
         query = query.where(eq(songs.isActive, true)) as any;
     }
-    
     const results = await query.orderBy(desc(songs.createdAt));
-    
     if (search) {
         const lower = search.toLowerCase();
         return results.filter(s => s.title.toLowerCase().includes(lower) || s.artist.toLowerCase().includes(lower));
@@ -112,16 +90,12 @@ export class DatabaseStorage implements IStorage {
 
   // === Request Methods ===
   async getRequests(status?: string): Promise<RequestWithSongs[]> {
-    // 1. Get requests
     let requestQuery = db.select().from(requests);
     if (status && status !== 'all') {
       requestQuery = requestQuery.where(eq(requests.status, status)) as any;
     }
     const requestList = await requestQuery.orderBy(desc(requests.createdAt));
-
     if (requestList.length === 0) return [];
-
-    // 2. Get associated songs
     const requestIds = requestList.map(r => r.id);
     const songsMap = await db
         .select({
@@ -132,8 +106,6 @@ export class DatabaseStorage implements IStorage {
         .from(requestSongs)
         .innerJoin(songs, eq(requestSongs.songId, songs.id))
         .where(inArray(requestSongs.requestId, requestIds));
-    
-    // 3. Merge
     return requestList.map(req => {
         const reqSongs = songsMap
             .filter(sm => sm.requestId === req.id)
@@ -142,26 +114,19 @@ export class DatabaseStorage implements IStorage {
                 requestId: sm.requestId,
                 songId: sm.song.id,
                 preferenceOrder: sm.preferenceOrder,
-                id: 0, // placeholder as we didn't fetch join table ID directly in this optimized query, or we could.
+                id: 0,
                 song: sm.song
             }));
-            
-        return {
-            ...req,
-            songs: reqSongs as any // Casting for simplicity in this implementation
-        };
+        return { ...req, songs: reqSongs as any };
     });
   }
 
   async createRequest(input: CreateRequestInput): Promise<RequestWithSongs> {
-    // Transaction ideally
     return await db.transaction(async (tx) => {
         const [newRequest] = await tx.insert(requests).values({
             participantName: input.participantName,
             status: "pending"
         }).returning();
-
-        // Insert song links
         let order = 1;
         for (const songId of input.songIds) {
             await tx.insert(requestSongs).values({
@@ -170,39 +135,23 @@ export class DatabaseStorage implements IStorage {
                 preferenceOrder: order++
             });
         }
-
-        // Fetch full object to return
-        // Simple re-fetch logic (duplicated from getRequests for single item)
-        // For efficiency in MVP, let's just re-use the generic get logic or construct manually.
-        // Let's construct manually to save a complex query.
-        
-        // We need the song details.
         const selectedSongs = await tx.select().from(songs).where(inArray(songs.id, input.songIds));
-        
-        // Sort them back in the order of input.songIds
         const orderedSongs = input.songIds.map((id, index) => {
             const s = selectedSongs.find(s => s.id === id);
             return {
-                id: 0, // placeholder
+                id: 0,
                 requestId: newRequest.id,
                 songId: id,
                 preferenceOrder: index + 1,
                 song: s!
             };
         });
-
-        return {
-            ...newRequest,
-            songs: orderedSongs
-        };
+        return { ...newRequest, songs: orderedSongs };
     });
   }
 
   async updateRequestStatus(id: number, status: string): Promise<RequestWithSongs> {
-    const [updated] = await db.update(requests).set({ status }).where(eq(requests.id, id)).returning();
-    // Return full object
-    const [full] = await this.getRequests(); // Inefficient but simple for MVP. Better: getRequestById.
-    // Actually, let's implement getRequestById logic here quickly
+    const [updated] = await db.update(requests).set({ status: status as any }).where(eq(requests.id, id)).returning();
     const songsMap = await db
         .select({
             requestId: requestSongs.requestId,
@@ -212,7 +161,6 @@ export class DatabaseStorage implements IStorage {
         .from(requestSongs)
         .innerJoin(songs, eq(requestSongs.songId, songs.id))
         .where(eq(requestSongs.requestId, id));
-        
     return {
         ...updated,
         songs: songsMap.map(sm => ({
@@ -225,7 +173,44 @@ export class DatabaseStorage implements IStorage {
     await db.delete(requestSongs).where(eq(requestSongs.requestId, id));
     await db.delete(requests).where(eq(requests.id, id));
   }
+
+  // === Setting Methods ===
+  async getSetting(key: string): Promise<string | undefined> {
+    const [setting] = await db.select().from(settings).where(eq(settings.key, key));
+    return setting?.value;
+  }
+
+  async updateSetting(key: string, value: string): Promise<string> {
+    const [updated] = await db
+      .insert(settings)
+      .values({ key, value })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value },
+      })
+      .returning();
+    return updated.value;
+  }
+
+  // === Guest Musician Methods ===
+  async getGuestMusicians(): Promise<GuestMusician[]> {
+    return await db.select().from(guestMusicians).orderBy(desc(guestMusicians.createdAt));
+  }
+
+  async createGuestMusician(input: CreateGuestMusicianInput): Promise<GuestMusician> {
+    const [newGuest] = await db.insert(guestMusicians).values(input).returning();
+    return newGuest;
+  }
+
+  async updateGuestMusicianStatus(id: number, status: string): Promise<GuestMusician> {
+    const [updated] = await db
+      .update(guestMusicians)
+      .set({ status: status as any })
+      .where(eq(guestMusicians.id, id))
+      .returning();
+    return updated;
+  }
 }
 
 export const storage = new DatabaseStorage();
-export const authStorage = storage; // Export for auth module compatibility
+export const authStorage = storage;
