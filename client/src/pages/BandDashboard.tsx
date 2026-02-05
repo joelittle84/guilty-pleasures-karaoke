@@ -99,21 +99,41 @@ export default function BandDashboard() {
 function SettingsView() {
   const { data: guitarMode } = useSettings("guitar_mode");
   const { data: guitarInstructions } = useSettings("guitar_instructions");
+  const { data: businessName } = useSettings("business_name");
+  const { data: businessInfo } = useSettings("business_info");
+  const { data: logoUrl } = useSettings("logo_url");
+  const { data: artworkUrl } = useSettings("hero_artwork_url");
+  
   const { mutate: updateSetting } = useUpdateSetting();
   const { toast } = useToast();
+  
   const [instructions, setInstructions] = useState("");
+  const [name, setName] = useState("");
+  const [info, setInfo] = useState("");
+  const [logo, setLogo] = useState("");
+  const [artwork, setArtwork] = useState("");
 
   useEffect(() => {
-    if (guitarInstructions?.value) {
-      setInstructions(guitarInstructions.value);
-    }
-  }, [guitarInstructions]);
+    if (guitarInstructions?.value) setInstructions(guitarInstructions.value);
+    if (businessName?.value) setName(businessName.value);
+    if (businessInfo?.value) setInfo(businessInfo.value);
+    if (logoUrl?.value) setLogo(logoUrl.value);
+    if (artworkUrl?.value) setArtwork(artworkUrl.value);
+  }, [guitarInstructions, businessName, businessInfo, logoUrl, artworkUrl]);
 
   const toggleGuitarMode = () => {
     const newValue = guitarMode?.value === "true" ? "false" : "true";
     updateSetting({ key: "guitar_mode", value: newValue }, {
       onSuccess: () => toast({ title: `Guitar mode ${newValue === "true" ? "enabled" : "disabled"}` })
     });
+  };
+
+  const saveBranding = () => {
+    updateSetting({ key: "business_name", value: name });
+    updateSetting({ key: "business_info", value: info });
+    updateSetting({ key: "logo_url", value: logo });
+    updateSetting({ key: "hero_artwork_url", value: artwork });
+    toast({ title: "Branding updated" });
   };
 
   const saveInstructions = () => {
@@ -124,6 +144,36 @@ function SettingsView() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <Card className="bg-card border-white/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5 text-primary" />
+            Project & Branding
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Business / Project Name</label>
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Neon Nights Karaoke" className="bg-black/40 border-white/10" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Business Info / Tagline</label>
+              <Input value={info} onChange={e => setInfo(e.target.value)} placeholder="e.g. The premier live band experience" className="bg-black/40 border-white/10" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Logo URL</label>
+              <Input value={logo} onChange={e => setLogo(e.target.value)} placeholder="https://example.com/logo.png" className="bg-black/40 border-white/10" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Hero Artwork URL</label>
+              <Input value={artwork} onChange={e => setArtwork(e.target.value)} placeholder="https://example.com/hero.jpg" className="bg-black/40 border-white/10" />
+            </div>
+            <NeonButton onClick={saveBranding} size="sm" className="mt-2">Save Branding</NeonButton>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="bg-card border-white/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

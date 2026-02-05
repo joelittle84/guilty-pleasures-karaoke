@@ -28,6 +28,11 @@ export default function Home() {
   const { mutate: submitRequest, isPending: isSubmitting } = useCreateRequest();
   const { data: guitarMode } = useSettings("guitar_mode");
   const { data: guitarInstructions } = useSettings("guitar_instructions");
+  const { data: businessName } = useSettings("business_name");
+  const { data: businessInfo } = useSettings("business_info");
+  const { data: logoUrl } = useSettings("logo_url");
+  const { data: artworkUrl } = useSettings("hero_artwork_url");
+  
   const { mutate: signupGuest, isPending: isSigningUp } = useCreateGuestMusician();
   const { toast } = useToast();
 
@@ -106,20 +111,31 @@ export default function Home() {
   return (
     <div className="min-h-screen pb-32">
       {/* Hero Header */}
-      <header className="relative pt-12 pb-8 px-4 overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-primary/10 to-transparent pointer-events-none" />
+      <header className="relative pt-12 pb-8 px-4 overflow-hidden min-h-[300px] flex flex-col justify-center">
+        {artworkUrl?.value ? (
+          <div className="absolute top-0 left-0 w-full h-full z-0">
+            <img src={artworkUrl.value} className="w-full h-full object-cover opacity-30" alt="Hero Artwork" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black" />
+          </div>
+        ) : (
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-primary/10 to-transparent pointer-events-none" />
+        )}
+        
         <div className="max-w-md mx-auto text-center relative z-10">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
+            {logoUrl?.value && (
+              <img src={logoUrl.value} className="h-20 mx-auto mb-6 drop-shadow-xl" alt="Logo" />
+            )}
             <h1 className="text-4xl md:text-5xl font-display font-black text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/70 mb-2 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
-              LIVE BAND
-              <span className="block text-primary text-glow mt-1">KARAOKE</span>
+              {businessName?.value || "LIVE BAND"}
+              <span className="block text-primary text-glow mt-1">{businessName?.value ? "" : "KARAOKE"}</span>
             </h1>
             <p className="text-muted-foreground font-medium text-lg">
-              You're the star. We're the band.
+              {businessInfo?.value || "You're the star. We're the band."}
             </p>
           </motion.div>
 
