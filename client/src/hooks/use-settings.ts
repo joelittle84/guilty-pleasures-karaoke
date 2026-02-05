@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl } from "@/lib/api";
+import { api, buildUrl } from "@shared/routes";
 
 export function useSettings(key: string) {
-  return useQuery({
+  return useQuery<{ value: string }>({
     queryKey: [buildUrl(api.settings.get.path, { key })],
     retry: false,
   });

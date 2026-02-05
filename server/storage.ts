@@ -92,7 +92,7 @@ export class DatabaseStorage implements IStorage {
   async getRequests(status?: string): Promise<RequestWithSongs[]> {
     let requestQuery = db.select().from(requests);
     if (status && status !== 'all') {
-      requestQuery = requestQuery.where(eq(requests.status, status)) as any;
+      requestQuery = requestQuery.where(eq(requests.status, status as any)) as any;
     }
     const requestList = await requestQuery.orderBy(desc(requests.createdAt));
     if (requestList.length === 0) return [];
@@ -166,7 +166,7 @@ export class DatabaseStorage implements IStorage {
         songs: songsMap.map(sm => ({
              id: 0, requestId: sm.requestId, songId: sm.song.id, preferenceOrder: sm.preferenceOrder, song: sm.song
         }))
-    };
+    } as any;
   }
 
   async deleteRequest(id: number): Promise<void> {

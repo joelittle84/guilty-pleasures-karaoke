@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl } from "@/lib/api";
+import { api, buildUrl } from "@shared/routes";
 import { GuestMusician, CreateGuestMusicianInput } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 

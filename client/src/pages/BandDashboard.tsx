@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Music, Clock, Check, X, LogOut, Loader2, PlayCircle, Trash2, Guitar, Settings } from "lucide-react";
+import { Music, Clock, Check, X, LogOut, Loader2, Trash2, Guitar } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -22,9 +22,7 @@ import { cn } from "@/lib/utils";
 export default function BandDashboard() {
   const { user, isLoading: authLoading, logout } = useAuth();
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
 
-  // Protect route
   useEffect(() => {
     if (!authLoading && !user) {
       setLocation("/api/login");
@@ -41,7 +39,6 @@ export default function BandDashboard() {
 
   return (
     <div className="min-h-screen bg-black/95 text-white">
-      {/* Top Bar */}
       <header className="border-b border-white/10 bg-black/50 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -265,7 +262,7 @@ function QueueView() {
             <CardContent className="pt-4 space-y-4">
               <div className="space-y-2">
                 {req.songs.map((item, idx) => (
-                  <div key={item.id} className="flex items-center gap-3 bg-black/20 p-2 rounded-lg border border-white/5">
+                  <div key={idx} className="flex items-center gap-3 bg-black/20 p-2 rounded-lg border border-white/5">
                     <span className="font-mono text-xs text-muted-foreground w-4">{idx + 1}.</span>
                     <div className="min-w-0">
                       <p className="font-medium truncate text-sm">{item.song.title}</p>

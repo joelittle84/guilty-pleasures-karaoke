@@ -7,7 +7,7 @@ import { SongCard } from "@/components/SongCard";
 import { NeonButton } from "@/components/NeonButton";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Guitar } from "lucide-react";
 import { Song } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
