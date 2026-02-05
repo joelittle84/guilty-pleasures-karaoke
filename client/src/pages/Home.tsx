@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useSongs } from "@/hooks/use-songs";
 import { useCreateRequest } from "@/hooks/use-requests";
+import { useSettings } from "@/hooks/use-settings";
+import { useCreateGuestMusician } from "@/hooks/use-guest-musicians";
 import { SongCard } from "@/components/SongCard";
 import { NeonButton } from "@/components/NeonButton";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2 } from "lucide-react";
+import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Guitar } from "lucide-react";
 import { Song } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
@@ -18,9 +20,15 @@ export default function Home() {
   const [participantName, setParticipantName] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showGuestSignup, setShowGuestSignup] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [numSongs, setNumSongs] = useState(2);
 
   const { data: songs, isLoading } = useSongs(search);
   const { mutate: submitRequest, isPending: isSubmitting } = useCreateRequest();
+  const { data: guitarMode } = useSettings("guitar_mode");
+  const { data: guitarInstructions } = useSettings("guitar_instructions");
+  const { mutate: signupGuest, isPending: isSigningUp } = useCreateGuestMusician();
   const { toast } = useToast();
 
   const handleToggleSong = (song: Song) => {
@@ -69,6 +77,32 @@ export default function Home() {
     });
   };
 
+  const handleGuestSignup = () => {
+    if (!guestName.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Please enter your name.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    signupGuest({
+      name: guestName,
+      instrument: "Guitar",
+      numSongs,
+    }, {
+      onSuccess: () => {
+        setShowGuestSignup(false);
+        setGuestName("");
+        toast({
+          title: "Signup Successful",
+          description: "The band will let you know when it's your turn to sit in!",
+        });
+      }
+    });
+  };
+
   return (
     <div className="min-h-screen pb-32">
       {/* Hero Header */}
@@ -88,6 +122,25 @@ export default function Home() {
               You're the star. We're the band.
             </p>
           </motion.div>
+
+          {guitarMode?.value === "true" && (
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mt-6"
+            >
+              <NeonButton 
+                onClick={() => setShowGuestSignup(true)}
+                variant="outline"
+                size="sm"
+                className="rounded-full border-primary/30 bg-primary/5 text-primary"
+              >
+                <Guitar className="w-4 h-4 mr-2" />
+                Guest Guitarist Signup
+              </NeonButton>
+            </motion.div>
+          )}
           
           <div className="mt-8 relative max-w-sm mx-auto">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground">
@@ -102,6 +155,52 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      {/* Guest Signup Dialog */}
+      <Dialog open={showGuestSignup} onOpenChange={setShowGuestSignup}>
+        <DialogContent className="bg-card border-white/10">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Guitar className="w-5 h-5 text-primary" />
+              Guest Guitarist Signup
+            </DialogTitle>
+            <DialogDescription className="pt-2 text-white/70">
+              {guitarInstructions?.value || "Signup to sit in with the band for a few songs!"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Your Name</label>
+              <Input 
+                value={guestName}
+                onChange={e => setGuestName(e.target.value)}
+                placeholder="Enter your name..."
+                className="bg-black/40 border-white/10"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Number of Songs (2-4)</label>
+              <Input 
+                type="number"
+                min={2}
+                max={4}
+                value={numSongs}
+                onChange={e => setNumSongs(parseInt(e.target.value))}
+                className="bg-black/40 border-white/10"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <NeonButton 
+              className="w-full" 
+              onClick={handleGuestSignup}
+              isLoading={isSigningUp}
+            >
+              Sign Up to Sit In
+            </NeonButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Song List */}
       <main className="px-4 max-w-md mx-auto space-y-4">

@@ -1,17 +1,21 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useRequests, useUpdateRequestStatus } from "@/hooks/use-requests";
 import { useSongs, useDeleteSong } from "@/hooks/use-songs";
+import { useSettings, useUpdateSetting } from "@/hooks/use-settings";
+import { useGuestMusicians, useUpdateGuestStatus } from "@/hooks/use-guest-musicians";
 import { NeonButton } from "@/components/NeonButton";
 import { CreateSongDialog } from "@/components/CreateSongDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Music, Clock, Check, X, LogOut, Loader2, PlayCircle, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Music, Clock, Check, X, LogOut, Loader2, PlayCircle, Trash2, Guitar, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { RequestWithSongs } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +70,12 @@ export default function BandDashboard() {
             <TabsTrigger value="songs" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-6">
               Song Management
             </TabsTrigger>
+            <TabsTrigger value="musicians" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-6">
+              Guest Musicians
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-6">
+              Settings
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="queue" className="space-y-4">
@@ -75,8 +85,134 @@ export default function BandDashboard() {
           <TabsContent value="songs" className="space-y-4">
             <SongsManager />
           </TabsContent>
+
+          <TabsContent value="musicians" className="space-y-4">
+            <GuestMusicianManager />
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4">
+            <SettingsView />
+          </TabsContent>
         </Tabs>
       </main>
+    </div>
+  );
+}
+
+function SettingsView() {
+  const { data: guitarMode } = useSettings("guitar_mode");
+  const { data: guitarInstructions } = useSettings("guitar_instructions");
+  const { mutate: updateSetting } = useUpdateSetting();
+  const { toast } = useToast();
+  const [instructions, setInstructions] = useState("");
+
+  useEffect(() => {
+    if (guitarInstructions?.value) {
+      setInstructions(guitarInstructions.value);
+    }
+  }, [guitarInstructions]);
+
+  const toggleGuitarMode = () => {
+    const newValue = guitarMode?.value === "true" ? "false" : "true";
+    updateSetting({ key: "guitar_mode", value: newValue }, {
+      onSuccess: () => toast({ title: `Guitar mode ${newValue === "true" ? "enabled" : "disabled"}` })
+    });
+  };
+
+  const saveInstructions = () => {
+    updateSetting({ key: "guitar_instructions", value: instructions }, {
+      onSuccess: () => toast({ title: "Instructions updated" })
+    });
+  };
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <Card className="bg-card border-white/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Guitar className="w-5 h-5 text-primary" />
+            Guitar Player Mode
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+            <div>
+              <p className="font-bold">Toggle Guitar Mode</p>
+              <p className="text-sm text-muted-foreground">Enable guest guitarist signup on the public page</p>
+            </div>
+            <Switch 
+              checked={guitarMode?.value === "true"} 
+              onCheckedChange={toggleGuitarMode} 
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Signup Instructions</label>
+            <Textarea 
+              value={instructions}
+              onChange={e => setInstructions(e.target.value)}
+              placeholder="Explain how guests can sit in..."
+              className="bg-black/40 border-white/10 min-h-[120px]"
+            />
+            <NeonButton onClick={saveInstructions} size="sm">Save Instructions</NeonButton>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function GuestMusicianManager() {
+  const { data: guests, isLoading } = useGuestMusicians();
+  const { mutate: updateStatus } = useUpdateGuestStatus();
+  const { toast } = useToast();
+
+  const handleStatus = (id: number, status: string) => {
+    updateStatus({ id, status }, {
+      onSuccess: () => toast({ title: `Signup ${status}` })
+    });
+  };
+
+  if (isLoading) return <div className="text-center py-12"><Loader2 className="w-8 h-8 animate-spin mx-auto opacity-50" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {guests?.length === 0 ? (
+          <div className="col-span-full text-center py-20 border border-dashed border-white/10 rounded-2xl bg-white/5">
+            <Guitar className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <h3 className="text-xl font-display font-bold">No signups yet</h3>
+          </div>
+        ) : (
+          guests?.map(guest => (
+            <Card key={guest.id} className="bg-card border-white/10 overflow-hidden">
+              <CardHeader className="bg-white/5 pb-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="font-display text-xl">{guest.name}</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-1">{guest.instrument} • {guest.numSongs} songs</p>
+                  </div>
+                  <Badge variant={guest.status === 'approved' ? 'default' : 'secondary'}>
+                    {guest.status.toUpperCase()}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {guest.status === 'pending' ? (
+                    <>
+                      <NeonButton variant="ghost" size="sm" onClick={() => handleStatus(guest.id, 'rejected')}>Reject</NeonButton>
+                      <NeonButton size="sm" onClick={() => handleStatus(guest.id, 'approved')}>Approve</NeonButton>
+                    </>
+                  ) : guest.status === 'approved' ? (
+                    <NeonButton className="col-span-2 w-full" size="sm" onClick={() => handleStatus(guest.id, 'completed')}>Complete</NeonButton>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
     </div>
   );
 }
