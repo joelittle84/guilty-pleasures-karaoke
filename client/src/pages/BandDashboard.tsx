@@ -11,13 +11,15 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Music, Clock, Check, X, LogOut, Loader2, Trash2, Guitar } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Music, Clock, Check, X, LogOut, Loader2, Trash2, Guitar, Settings as SettingsIcon, QrCode } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { RequestWithSongs } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function BandDashboard() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -36,6 +38,8 @@ export default function BandDashboard() {
       </div>
     );
   }
+
+  const shareUrl = `${window.location.origin}/`;
 
   return (
     <div className="min-h-screen bg-black/95 text-white">
@@ -88,7 +92,7 @@ export default function BandDashboard() {
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4">
-            <SettingsView />
+            <SettingsView shareUrl={shareUrl} />
           </TabsContent>
         </Tabs>
       </main>
@@ -96,7 +100,7 @@ export default function BandDashboard() {
   );
 }
 
-function SettingsView() {
+function SettingsView({ shareUrl }: { shareUrl: string }) {
   const { data: guitarMode } = useSettings("guitar_mode");
   const { data: guitarInstructions } = useSettings("guitar_instructions");
   const { data: businessName } = useSettings("business_name");
@@ -143,11 +147,29 @@ function SettingsView() {
   };
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl space-y-6 pb-20">
       <Card className="bg-card border-white/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5 text-primary" />
+            <QrCode className="w-5 h-5 text-primary" />
+            Share Your Show
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center p-8 space-y-4">
+          <div className="p-4 bg-white rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+            <QRCodeSVG value={shareUrl} size={200} />
+          </div>
+          <div className="text-center">
+            <p className="font-bold">Scan to Request Songs</p>
+            <p className="text-sm text-muted-foreground">{shareUrl}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card border-white/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SettingsIcon className="w-5 h-5 text-primary" />
             Project & Branding
           </CardTitle>
         </CardHeader>

@@ -7,12 +7,13 @@ import { SongCard } from "@/components/SongCard";
 import { NeonButton } from "@/components/NeonButton";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Guitar } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Guitar, QrCode } from "lucide-react";
 import { Song } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link } from "wouter";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function Home() {
   const [search, setSearch] = useState("");
@@ -21,6 +22,7 @@ export default function Home() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showGuestSignup, setShowGuestSignup] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [numSongs, setNumSongs] = useState(2);
 
@@ -108,6 +110,8 @@ export default function Home() {
     });
   };
 
+  const shareUrl = `${window.location.origin}/`;
+
   return (
     <div className="min-h-screen pb-32">
       {/* Hero Header */}
@@ -139,24 +143,41 @@ export default function Home() {
             </p>
           </motion.div>
 
-          {guitarMode?.value === "true" && (
+          <div className="flex flex-wrap justify-center gap-3 mt-6">
+            {guitarMode?.value === "true" && (
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                <NeonButton 
+                  onClick={() => setShowGuestSignup(true)}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full border-primary/30 bg-primary/5 text-primary"
+                >
+                  <Guitar className="w-4 h-4 mr-2" />
+                  Guest Guitarist
+                </NeonButton>
+              </motion.div>
+            )}
+
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="mt-6"
+              transition={{ delay: 0.4 }}
             >
               <NeonButton 
-                onClick={() => setShowGuestSignup(true)}
+                onClick={() => setShowQR(true)}
                 variant="outline"
                 size="sm"
-                className="rounded-full border-primary/30 bg-primary/5 text-primary"
+                className="rounded-full border-white/20 bg-white/5 text-white/70"
               >
-                <Guitar className="w-4 h-4 mr-2" />
-                Guest Guitarist Signup
+                <QrCode className="w-4 h-4 mr-2" />
+                Share Show
               </NeonButton>
             </motion.div>
-          )}
+          </div>
           
           <div className="mt-8 relative max-w-sm mx-auto">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground">
@@ -215,6 +236,29 @@ export default function Home() {
               Sign Up to Sit In
             </NeonButton>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Code Dialog */}
+      <Dialog open={showQR} onOpenChange={setShowQR}>
+        <DialogContent className="bg-card border-white/10 text-center sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-display">Share This Show</DialogTitle>
+            <DialogDescription className="text-muted-foreground pt-2">
+              Let others scan this code to request their favorite songs!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center p-6 space-y-4">
+            <div className="p-4 bg-white rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+              <QRCodeSVG value={shareUrl} size={200} />
+            </div>
+            <p className="text-xs text-muted-foreground break-all px-4">{shareUrl}</p>
+          </div>
+          <div className="pt-2">
+            <NeonButton onClick={() => setShowQR(false)} variant="outline" className="w-full">
+              Close
+            </NeonButton>
+          </div>
         </DialogContent>
       </Dialog>
 
