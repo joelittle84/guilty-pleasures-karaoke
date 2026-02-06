@@ -12,14 +12,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Music, Clock, Check, X, LogOut, Loader2, Trash2, Guitar, Settings as SettingsIcon, QrCode } from "lucide-react";
+import { Music, Clock, Check, X, LogOut, Loader2, Trash2, Guitar, Settings as SettingsIcon, QrCode, FileUp } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { RequestWithSongs } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { QRCodeSVG } from "qrcode.react";
+import Papa from "papaparse";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function BandDashboard() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -27,9 +29,9 @@ export default function BandDashboard() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      setLocation("/api/login");
+      window.location.href = "/api/login";
     }
-  }, [user, authLoading, setLocation]);
+  }, [user, authLoading]);
 
   if (authLoading || !user) {
     return (
@@ -384,6 +386,8 @@ function SongsManager() {
   const { data: songs, isLoading } = useSongs();
   const { mutate: deleteSong } = useDeleteSong();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const handleDelete = (id: number) => {
     if (confirm("Are you sure you want to delete this song?")) {
@@ -393,14 +397,81 @@ function SongsManager() {
     }
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          let successCount = 0;
+          for (const row of results.data as any[]) {
+            if (row.title && row.artist) {
+              await apiRequest("POST", "/api/songs", {
+                title: row.title,
+                artist: row.artist,
+                genre: row.genre || "",
+                spotifyUrl: row.spotifyUrl || row.spotify_url || ""
+              });
+              successCount++;
+            }
+          }
+          queryClient.invalidateQueries({ queryKey: ["/api/songs"] });
+          toast({ 
+            title: "Import Complete", 
+            description: `Successfully imported ${successCount} songs.` 
+          });
+        } catch (error) {
+          toast({ 
+            title: "Import Failed", 
+            description: "Some songs failed to import. Please check your CSV format.",
+            variant: "destructive" 
+          });
+        } finally {
+          setIsImporting(false);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+      },
+      error: () => {
+        setIsImporting(false);
+        toast({ 
+          title: "Error", 
+          description: "Failed to parse CSV file.", 
+          variant: "destructive" 
+        });
+      }
+    });
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl border border-white/10">
+      <div className="flex flex-wrap gap-4 justify-between items-center bg-white/5 p-4 rounded-xl border border-white/10">
         <div>
           <h2 className="text-xl font-display font-bold">Catalog</h2>
           <p className="text-sm text-muted-foreground">{songs?.length || 0} songs available</p>
         </div>
-        <CreateSongDialog />
+        <div className="flex items-center gap-2">
+          <input
+            type="file"
+            accept=".csv"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+          />
+          <NeonButton 
+            variant="outline" 
+            size="sm" 
+            onClick={() => fileInputRef.current?.click()}
+            isLoading={isImporting}
+          >
+            <FileUp className="w-4 h-4 mr-2" />
+            Batch Upload CSV
+          </NeonButton>
+          <CreateSongDialog />
+        </div>
       </div>
 
       <ScrollArea className="h-[600px] rounded-xl border border-white/10 bg-black/20">
