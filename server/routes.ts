@@ -94,13 +94,15 @@ export async function registerRoutes(
 
   // === Settings Routes ===
   app.get(api.settings.get.path, async (req, res) => {
-    const value = await storage.getSetting(req.params.key);
+    const key = String(req.params.key);
+    const value = await storage.getSetting(key);
     if (value === undefined) return res.status(404).json({ message: "Setting not found" });
     res.json({ value });
   });
 
   app.patch(api.settings.update.path, isAuthenticated, async (req, res) => {
-    const value = await storage.updateSetting(req.params.key, req.body.value);
+    const key = String(req.params.key);
+    const value = await storage.updateSetting(key, req.body.value);
     res.json({ value });
   });
 

@@ -405,7 +405,7 @@ function SongsManager() {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: async (results) => {
+      complete: async (results: any) => {
         try {
           let successCount = 0;
           for (const row of results.data as any[]) {
