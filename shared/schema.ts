@@ -2,7 +2,6 @@ import { pgTable, text, serial, integer, boolean, timestamp, varchar } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Export everything from auth models for integration compatibility
 export * from "./models/auth";
 
 // === TABLE DEFINITIONS ===
@@ -50,10 +49,11 @@ export const triviaSessions = pgTable("trivia_sessions", {
   id: serial("id").primaryKey(),
   songTitle: text("song_title").notNull(),
   songArtist: text("song_artist").notNull(),
-  questions: text("questions").notNull(), // JSON: TriviaQuestion[]
+  questions: text("questions").notNull(),
   status: text("status", { enum: ["waiting", "active", "completed"] }).default("waiting").notNull(),
   currentQuestionIndex: integer("current_question_index").default(0).notNull(),
   questionStartedAt: timestamp("question_started_at"),
+  questionDurationSeconds: integer("question_duration_seconds").default(25).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -61,9 +61,18 @@ export const triviaParticipants = pgTable("trivia_participants", {
   id: serial("id").primaryKey(),
   sessionId: integer("session_id").references(() => triviaSessions.id).notNull(),
   playerName: text("player_name").notNull(),
-  answers: text("answers").notNull().default("[]"), // JSON: number[]
+  answers: text("answers").notNull().default("[]"),
   score: integer("score").default(0).notNull(),
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+export const preSignups = pgTable("pre_signups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // === RELATIONS ===
@@ -74,14 +83,8 @@ export const requestsRelations = relations(requests, ({ many }) => ({
 }));
 
 export const requestSongsRelations = relations(requestSongs, ({ one }) => ({
-  request: one(requests, {
-    fields: [requestSongs.requestId],
-    references: [requests.id],
-  }),
-  song: one(songs, {
-    fields: [requestSongs.songId],
-    references: [songs.id],
-  }),
+  request: one(requests, { fields: [requestSongs.requestId], references: [requests.id] }),
+  song: one(songs, { fields: [requestSongs.songId], references: [songs.id] }),
 }));
 
 export const triviaSessionsRelations = relations(triviaSessions, ({ many }) => ({
@@ -89,16 +92,14 @@ export const triviaSessionsRelations = relations(triviaSessions, ({ many }) => (
 }));
 
 export const triviaParticipantsRelations = relations(triviaParticipants, ({ one }) => ({
-  session: one(triviaSessions, {
-    fields: [triviaParticipants.sessionId],
-    references: [triviaSessions.id],
-  }),
+  session: one(triviaSessions, { fields: [triviaParticipants.sessionId], references: [triviaSessions.id] }),
 }));
 
-// === BASE SCHEMAS ===
+// === SCHEMAS ===
 export const insertSongSchema = createInsertSchema(songs).omit({ id: true, createdAt: true });
 export const insertRequestSchema = createInsertSchema(requests).omit({ id: true, createdAt: true, status: true });
 export const insertGuestMusicianSchema = createInsertSchema(guestMusicians).omit({ id: true, createdAt: true, status: true });
+export const insertPreSignupSchema = createInsertSchema(preSignups).omit({ id: true, createdAt: true });
 
 export const createRequestSchema = z.object({
   participantName: z.string().min(1, "Name is required"),
@@ -120,12 +121,25 @@ export interface TriviaSessionPublic {
   currentQuestionIndex: number;
   currentQuestion: TriviaQuestion | null;
   questionStartedAt: string | null;
+  questionDurationSeconds: number;
+  secondsRemaining: number | null;
   totalQuestions: number;
   participantCount: number;
   leaderboard: { playerName: string; score: number }[];
 }
 
-// === EXPLICIT API CONTRACT TYPES ===
+// === PRE-SIGNUP TYPES ===
+export interface PreSignupConfig {
+  enabled: boolean;
+  limit: number;
+  windowStart: string | null;
+  windowEnd: string | null;
+  currentCount: number;
+  isOpen: boolean;
+  spotsRemaining: number;
+}
+
+// === TYPES ===
 export type Song = typeof songs.$inferSelect;
 export type InsertSong = z.infer<typeof insertSongSchema>;
 export type Request = typeof requests.$inferSelect;
@@ -134,6 +148,8 @@ export type Setting = typeof settings.$inferSelect;
 export type GuestMusician = typeof guestMusicians.$inferSelect;
 export type TriviaSession = typeof triviaSessions.$inferSelect;
 export type TriviaParticipant = typeof triviaParticipants.$inferSelect;
+export type PreSignup = typeof preSignups.$inferSelect;
+export type InsertPreSignup = z.infer<typeof insertPreSignupSchema>;
 
 export type RequestWithSongs = Request & {
   songs: (RequestSong & { song: Song })[];
@@ -145,7 +161,6 @@ export type CreateRequestInput = z.infer<typeof createRequestSchema>;
 export type UpdateRequestStatusInput = { status: 'pending' | 'approved' | 'completed' | 'rejected' };
 export type CreateGuestMusicianInput = z.infer<typeof insertGuestMusicianSchema>;
 
-// Response types
 export type SongResponse = Song;
 export type SongsListResponse = Song[];
 export type RequestResponse = RequestWithSongs;

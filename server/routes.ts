@@ -6,7 +6,6 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { encrypt, decrypt } from "./crypto";
 import { z } from "zod";
 
-// Encrypted setting keys
 const ENCRYPTED_KEYS = ["venmo_handle", "zelle_handle", "spotify_client_id", "spotify_client_secret"];
 
 async function getSpotifyToken(): Promise<string | null> {
@@ -14,9 +13,7 @@ async function getSpotifyToken(): Promise<string | null> {
     const clientId = await storage.getSetting("spotify_client_id");
     const clientSecret = await storage.getSetting("spotify_client_secret");
     if (!clientId || !clientSecret) return null;
-    const decryptedId = decrypt(clientId);
-    const decryptedSecret = decrypt(clientSecret);
-    const encoded = Buffer.from(`${decryptedId}:${decryptedSecret}`).toString("base64");
+    const encoded = Buffer.from(`${decrypt(clientId)}:${decrypt(clientSecret)}`).toString("base64");
     const res = await fetch("https://accounts.spotify.com/api/token", {
       method: "POST",
       headers: { "Authorization": `Basic ${encoded}`, "Content-Type": "application/x-www-form-urlencoded" },
@@ -24,45 +21,28 @@ async function getSpotifyToken(): Promise<string | null> {
     });
     const data = await res.json() as any;
     return data.access_token || null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-async function fetchTriviaQuestions(songTitle: string, songArtist: string): Promise<any[]> {
+async function fetchTriviaQuestions(count: number = 4): Promise<any[]> {
   try {
-    const res = await fetch("https://opentdb.com/api.php?amount=4&category=12&type=multiple");
+    const res = await fetch(`https://opentdb.com/api.php?amount=${count}&category=12&type=multiple`);
     const data = await res.json() as any;
     if (data.response_code !== 0) throw new Error("API error");
+    const decode = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
     return data.results.map((q: any) => {
       const options = [...q.incorrect_answers, q.correct_answer];
-      // Shuffle options
       for (let i = options.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [options[i], options[j]] = [options[j], options[i]];
       }
-      const correctIndex = options.indexOf(q.correct_answer);
-      // Decode HTML entities
-      const decode = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
-      return {
-        question: decode(q.question),
-        options: options.map(decode),
-        correctIndex
-      };
+      return { question: decode(q.question), options: options.map(decode), correctIndex: options.indexOf(q.correct_answer) };
     });
   } catch {
-    // Fallback questions if API fails
     return [
-      {
-        question: `What genre is "${songTitle}" by ${songArtist} most associated with?`,
-        options: ["Pop", "Rock", "R&B", "Country"],
-        correctIndex: 0
-      },
-      {
-        question: `Which decade saw a major rise in band karaoke performances?`,
-        options: ["1980s", "1990s", "2000s", "2010s"],
-        correctIndex: 2
-      }
+      { question: "Which decade saw the rise of karaoke in bars and clubs worldwide?", options: ["1970s", "1980s", "1990s", "2000s"], correctIndex: 1 },
+      { question: "What does the word 'karaoke' mean in Japanese?", options: ["Empty stage", "Empty orchestra", "Singing alone", "No music"], correctIndex: 1 },
+      { question: "Which instrument is most commonly featured in live band karaoke?", options: ["Violin", "Harp", "Guitar", "Banjo"], correctIndex: 2 },
     ];
   }
 }
@@ -71,7 +51,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   await setupAuth(app);
   registerAuthRoutes(app);
 
-  // === Public: Songs ===
+  // === Songs ===
   app.get(api.songs.list.path, async (req, res) => {
     const search = req.query.search as string | undefined;
     const activeOnly = req.query.activeOnly !== 'false';
@@ -79,7 +59,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(songs);
   });
 
-  // === Protected: Song Management ===
   app.post(api.songs.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.songs.create.input.parse(req.body);
@@ -97,9 +76,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const input = api.songs.update.input.parse(req.body);
       const song = await storage.updateSong(id, input);
       res.json(song);
-    } catch {
-      res.status(400).json({ message: "Update failed" });
-    }
+    } catch { res.status(400).json({ message: "Update failed" }); }
   });
 
   app.delete(api.songs.delete.path, isAuthenticated, async (req, res) => {
@@ -116,53 +93,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/songs/import-spotify", isAuthenticated, async (req, res) => {
     const { playlistUrl } = req.body;
     if (!playlistUrl) return res.status(400).json({ message: "playlistUrl required" });
-
     const token = await getSpotifyToken();
     if (!token) return res.status(400).json({ message: "Spotify credentials not configured. Add Client ID and Secret in Settings." });
-
-    // Extract playlist ID from URL
     const match = playlistUrl.match(/playlist\/([a-zA-Z0-9]+)/);
     if (!match) return res.status(400).json({ message: "Invalid Spotify playlist URL" });
     const playlistId = match[1];
-
     try {
-      let offset = 0;
-      const limit = 50;
-      let total = Infinity;
-      let imported = 0;
-
+      let offset = 0, total = Infinity, imported = 0;
       while (offset < total) {
-        const r = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=${limit}&offset=${offset}`, {
+        const r = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50&offset=${offset}`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
         const data = await r.json() as any;
         if (!data.items) break;
         total = data.total;
-
         for (const item of data.items) {
           if (!item.track) continue;
           const track = item.track;
-          const artists = track.artists?.map((a: any) => a.name).join(", ") || "";
-          const genre = track.album?.genres?.[0] || "";
           await storage.createSong({
             title: track.name,
-            artist: artists,
+            artist: track.artists?.map((a: any) => a.name).join(", ") || "",
             spotifyUrl: track.external_urls?.spotify || "",
-            genre: genre || null,
+            genre: null,
             isActive: true,
           });
           imported++;
         }
-        offset += limit;
+        offset += 50;
         if (offset >= total) break;
       }
       res.json({ imported });
-    } catch (err) {
-      res.status(500).json({ message: "Failed to import from Spotify" });
-    }
+    } catch { res.status(500).json({ message: "Failed to import from Spotify" }); }
   });
 
-  // === Public: Requests ===
+  // === Requests ===
   app.post(api.requests.create.path, async (req, res) => {
     try {
       const input = api.requests.create.input.parse(req.body);
@@ -174,7 +138,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // === Protected: Requests ===
   app.get(api.requests.list.path, isAuthenticated, async (req, res) => {
     const status = req.query.status as string | undefined;
     const requests = await storage.getRequests(status);
@@ -183,8 +146,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch(api.requests.updateStatus.path, isAuthenticated, async (req, res) => {
     const id = Number(req.params.id);
-    const { status } = req.body;
-    const request = await storage.updateRequestStatus(id, status);
+    const request = await storage.updateRequestStatus(id, req.body.status);
     res.json(request);
   });
 
@@ -193,14 +155,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.status(204).send();
   });
 
-  // Public: queue info for wait times
   app.get("/api/queue-info", async (req, res) => {
     const pending = await storage.getRequests();
-    const activeItems = pending.filter(r => r.status === "pending" || r.status === "approved");
-    res.json({
-      queueLength: activeItems.length,
-      estimatedMinutes: activeItems.length * 4,
-    });
+    const active = pending.filter(r => r.status === "pending" || r.status === "approved");
+    res.json({ queueLength: active.length, estimatedMinutes: active.length * 4 });
   });
 
   // === Settings ===
@@ -214,27 +172,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch(api.settings.update.path, isAuthenticated, async (req, res) => {
     const key = String(req.params.key);
     let value = req.body.value;
-    if (ENCRYPTED_KEYS.includes(key) && value) {
-      value = encrypt(value);
-    }
+    if (ENCRYPTED_KEYS.includes(key) && value) value = encrypt(value);
     const saved = await storage.updateSetting(key, value);
     res.json({ value: saved });
   });
 
-  // Public: get decrypted tip handles
   app.get("/api/tips", async (req, res) => {
     const venmoRaw = await storage.getSetting("venmo_handle");
     const zelleRaw = await storage.getSetting("zelle_handle");
-    res.json({
-      venmo: venmoRaw ? decrypt(venmoRaw) : null,
-      zelle: zelleRaw ? decrypt(zelleRaw) : null,
-    });
+    res.json({ venmo: venmoRaw ? decrypt(venmoRaw) : null, zelle: zelleRaw ? decrypt(zelleRaw) : null });
   });
 
   // === Guest Musicians ===
   app.get(api.guestMusicians.list.path, async (req, res) => {
-    const guests = await storage.getGuestMusicians();
-    res.json(guests);
+    res.json(await storage.getGuestMusicians());
   });
 
   app.post(api.guestMusicians.create.path, async (req, res) => {
@@ -249,14 +200,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.patch(api.guestMusicians.updateStatus.path, isAuthenticated, async (req, res) => {
-    const id = Number(req.params.id);
-    const guest = await storage.updateGuestMusicianStatus(id, req.body.status);
+    const guest = await storage.updateGuestMusicianStatus(Number(req.params.id), req.body.status);
     res.json(guest);
-  });
-
-  app.delete("/api/guest-musicians/:id", isAuthenticated, async (req, res) => {
-    await storage.deleteGuestMusician(Number(req.params.id));
-    res.status(204).send();
   });
 
   app.delete("/api/guest-musicians/completed/all", isAuthenticated, async (req, res) => {
@@ -264,65 +209,112 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.status(204).send();
   });
 
-  // === Trivia ===
-  // Public: get active session
-  app.get("/api/trivia/active", async (req, res) => {
-    const session = await storage.getActiveTriviaSession();
-    res.json(session);
+  app.delete("/api/guest-musicians/:id", isAuthenticated, async (req, res) => {
+    await storage.deleteGuestMusician(Number(req.params.id));
+    res.status(204).send();
   });
 
-  // Public: join trivia
+  // === Trivia ===
+  app.get("/api/trivia/active", async (req, res) => {
+    res.json(await storage.getActiveTriviaSession());
+  });
+
   app.post("/api/trivia/join", async (req, res) => {
     const { sessionId, playerName } = req.body;
     if (!sessionId || !playerName) return res.status(400).json({ message: "sessionId and playerName required" });
-    const participant = await storage.joinTrivia(Number(sessionId), playerName);
-    res.json(participant);
+    res.json(await storage.joinTrivia(Number(sessionId), playerName));
   });
 
-  // Public: submit answer
   app.post("/api/trivia/answer", async (req, res) => {
     const { sessionId, playerName, answerIndex } = req.body;
-    if (sessionId === undefined || !playerName || answerIndex === undefined) {
-      return res.status(400).json({ message: "sessionId, playerName, and answerIndex required" });
-    }
-    const result = await storage.submitTriviaAnswer(Number(sessionId), playerName, Number(answerIndex));
-    res.json(result);
+    if (sessionId === undefined || !playerName || answerIndex === undefined) return res.status(400).json({ message: "Missing fields" });
+    res.json(await storage.submitTriviaAnswer(Number(sessionId), playerName, Number(answerIndex)));
   });
 
-  // Protected: create trivia session
   app.post("/api/trivia/sessions", isAuthenticated, async (req, res) => {
-    const { songTitle, songArtist } = req.body;
+    const { songTitle, songArtist, questionCount = 4, questionDurationSeconds = 25 } = req.body;
     if (!songTitle || !songArtist) return res.status(400).json({ message: "songTitle and songArtist required" });
-    const questions = await fetchTriviaQuestions(songTitle, songArtist);
-    const session = await storage.createTriviaSession(songTitle, songArtist, questions);
+    const questions = await fetchTriviaQuestions(Math.min(5, Math.max(3, Number(questionCount))));
+    const session = await storage.createTriviaSession(songTitle, songArtist, questions, Number(questionDurationSeconds));
     res.status(201).json(session);
   });
 
-  // Protected: update session status (start/complete)
   app.patch("/api/trivia/sessions/:id/status", isAuthenticated, async (req, res) => {
-    const id = Number(req.params.id);
-    const { status } = req.body;
-    const session = await storage.updateTriviaSessionStatus(id, status);
-    res.json(session);
+    res.json(await storage.updateTriviaSessionStatus(Number(req.params.id), req.body.status));
   });
 
-  // Protected: advance to next question
   app.post("/api/trivia/sessions/:id/next", isAuthenticated, async (req, res) => {
-    const id = Number(req.params.id);
-    const session = await storage.advanceTriviaQuestion(id);
-    res.json(session);
+    res.json(await storage.advanceTriviaQuestion(Number(req.params.id)));
   });
 
-  // Protected: get leaderboard
   app.get("/api/trivia/sessions/:id/leaderboard", isAuthenticated, async (req, res) => {
-    const id = Number(req.params.id);
-    const lb = await storage.getTriviaLeaderboard(id);
-    res.json(lb);
+    res.json(await storage.getTriviaLeaderboard(Number(req.params.id)));
   });
 
-  // Protected: delete all trivia
   app.delete("/api/trivia/sessions", isAuthenticated, async (req, res) => {
     await storage.deleteAllTriviaSessions();
+    res.status(204).send();
+  });
+
+  // === Pre-Signups ===
+  // Public: get pre-signup config/status
+  app.get("/api/presignup/config", async (req, res) => {
+    const [enabledRaw, limitRaw, windowStartRaw, windowEndRaw] = await Promise.all([
+      storage.getSetting("presignup_enabled"),
+      storage.getSetting("presignup_limit"),
+      storage.getSetting("presignup_window_start"),
+      storage.getSetting("presignup_window_end"),
+    ]);
+    const enabled = enabledRaw === "true";
+    const limit = limitRaw ? parseInt(limitRaw) : 50;
+    const windowStart = windowStartRaw || null;
+    const windowEnd = windowEndRaw || null;
+    const currentCount = await storage.countPreSignups();
+    const now = new Date();
+    const inWindow = (!windowStart || new Date(windowStart) <= now) && (!windowEnd || new Date(windowEnd) >= now);
+    const isOpen = enabled && inWindow && currentCount < limit;
+    res.json({ enabled, limit, windowStart, windowEnd, currentCount, isOpen, spotsRemaining: Math.max(0, limit - currentCount) });
+  });
+
+  // Public: create pre-signup
+  app.post("/api/presignup", async (req, res) => {
+    const { name, email, phone, notes } = req.body;
+    if (!name?.trim()) return res.status(400).json({ message: "Name is required" });
+
+    // Verify window is still open
+    const [enabledRaw, limitRaw, windowStartRaw, windowEndRaw] = await Promise.all([
+      storage.getSetting("presignup_enabled"),
+      storage.getSetting("presignup_limit"),
+      storage.getSetting("presignup_window_start"),
+      storage.getSetting("presignup_window_end"),
+    ]);
+    const enabled = enabledRaw === "true";
+    const limit = limitRaw ? parseInt(limitRaw) : 50;
+    const now = new Date();
+    const inWindow = (!windowStartRaw || new Date(windowStartRaw) <= now) && (!windowEndRaw || new Date(windowEndRaw) >= now);
+    const currentCount = await storage.countPreSignups();
+    if (!enabled || !inWindow || currentCount >= limit) {
+      return res.status(400).json({ message: "Pre-signup is not available right now." });
+    }
+
+    const signup = await storage.createPreSignup({ name: name.trim(), email: email?.trim() || null, phone: phone?.trim() || null, notes: notes?.trim() || null });
+    res.status(201).json(signup);
+  });
+
+  // Protected: list pre-signups
+  app.get("/api/presignup", isAuthenticated, async (req, res) => {
+    res.json(await storage.getPreSignups());
+  });
+
+  // Protected: delete one
+  app.delete("/api/presignup/:id", isAuthenticated, async (req, res) => {
+    await storage.deletePreSignup(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // Protected: clear all
+  app.delete("/api/presignup", isAuthenticated, async (req, res) => {
+    await storage.clearPreSignups();
     res.status(204).send();
   });
 
@@ -345,8 +337,6 @@ export async function seedDatabase() {
       { title: "Tennessee Whiskey", artist: "Chris Stapleton", genre: "Country", spotifyUrl: "https://open.spotify.com/track/3fqwjXwUGN6vbzIwvyFMhx" },
       { title: "Valerie", artist: "Mark Ronson ft. Amy Winehouse", genre: "Soul", spotifyUrl: "https://open.spotify.com/track/4EbGVxT0TwEkwNqM2eT99G" }
     ];
-    for (const s of initialSongs) {
-      await storage.createSong(s);
-    }
+    for (const s of initialSongs) await storage.createSong(s);
   }
 }

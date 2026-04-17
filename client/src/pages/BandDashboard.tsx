@@ -4,6 +4,7 @@ import { useSongs, useDeleteSong, useToggleSong } from "@/hooks/use-songs";
 import { useSettings, useUpdateSetting } from "@/hooks/use-settings";
 import { useGuestMusicians, useUpdateGuestStatus, useDeleteGuest, useClearCompletedGuests } from "@/hooks/use-guest-musicians";
 import { useActiveTrivia, useCreateTriviaSession, useUpdateTriviaStatus, useAdvanceTriviaQuestion, useDeleteAllTrivia } from "@/hooks/use-trivia";
+import { usePreSignups, useDeletePreSignup, useClearPreSignups } from "@/hooks/use-presignup";
 import { NeonButton } from "@/components/NeonButton";
 import { CreateSongDialog } from "@/components/CreateSongDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,7 +17,8 @@ import { Input } from "@/components/ui/input";
 import {
   Music, Clock, Check, X, LogOut, Loader2, Trash2, Guitar, Eye, EyeOff,
   Settings as SettingsIcon, QrCode, FileUp, DollarSign, Trophy, Play,
-  ChevronRight, SkipForward, Users, Sparkles, ListMusic, Upload
+  ChevronRight, SkipForward, Users, Sparkles, ListMusic, Upload, CalendarCheck,
+  Timer, Hash
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -56,9 +58,7 @@ export default function BandDashboard() {
             <h1 className="font-display font-bold text-xl tracking-tight">Band Dashboard</h1>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              {user.firstName || user.email}
-            </span>
+            <span className="text-sm text-muted-foreground hidden sm:inline">{user.firstName || user.email}</span>
             <NeonButton variant="ghost" size="sm" onClick={() => logout()}>
               <LogOut className="w-4 h-4" />
             </NeonButton>
@@ -78,6 +78,9 @@ export default function BandDashboard() {
             <TabsTrigger value="musicians" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-4 py-2 text-sm">
               <Guitar className="w-4 h-4 mr-1.5" /> Musicians
             </TabsTrigger>
+            <TabsTrigger value="presignup" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-4 py-2 text-sm">
+              <CalendarCheck className="w-4 h-4 mr-1.5" /> Pre-Signup
+            </TabsTrigger>
             <TabsTrigger value="trivia" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-4 py-2 text-sm">
               <Trophy className="w-4 h-4 mr-1.5" /> Trivia
             </TabsTrigger>
@@ -89,6 +92,7 @@ export default function BandDashboard() {
           <TabsContent value="queue"><QueueView /></TabsContent>
           <TabsContent value="songs"><SongsManager /></TabsContent>
           <TabsContent value="musicians"><GuestMusicianManager /></TabsContent>
+          <TabsContent value="presignup"><PreSignupManager /></TabsContent>
           <TabsContent value="trivia"><TriviaManager /></TabsContent>
           <TabsContent value="settings"><SettingsView shareUrl={shareUrl} /></TabsContent>
         </Tabs>
@@ -175,90 +179,52 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
 
   return (
     <div className="max-w-2xl space-y-6 pb-20">
-      {/* QR Code */}
       <Card className="bg-card border-white/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><QrCode className="w-5 h-5 text-primary" /> Share Your Show</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><QrCode className="w-5 h-5 text-primary" /> Share Your Show</CardTitle></CardHeader>
         <CardContent className="flex flex-col items-center p-8 space-y-4">
-          <div className="p-4 bg-white rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.1)]">
-            <QRCodeSVG value={shareUrl} size={200} />
-          </div>
+          <div className="p-4 bg-white rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.1)]"><QRCodeSVG value={shareUrl} size={200} /></div>
           <p className="text-sm text-muted-foreground">{shareUrl}</p>
         </CardContent>
       </Card>
 
-      {/* Branding */}
       <Card className="bg-card border-white/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5 text-primary" /> Project & Branding</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5 text-primary" /> Project & Branding</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Business / Project Name</label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Neon Nights Karaoke" className="bg-black/40 border-white/10" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Tagline / Info</label>
-            <Input value={info} onChange={e => setInfo(e.target.value)} placeholder="e.g. The premier live band experience" className="bg-black/40 border-white/10" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Logo URL</label>
-            <Input value={logo} onChange={e => setLogo(e.target.value)} placeholder="https://example.com/logo.png" className="bg-black/40 border-white/10" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Hero Artwork URL</label>
-            <Input value={artwork} onChange={e => setArtwork(e.target.value)} placeholder="https://example.com/hero.jpg" className="bg-black/40 border-white/10" />
-          </div>
+          <div className="space-y-2"><label className="text-sm font-medium">Business / Project Name</label><Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Neon Nights Karaoke" className="bg-black/40 border-white/10" /></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Tagline / Info</label><Input value={info} onChange={e => setInfo(e.target.value)} placeholder="e.g. The premier live band experience" className="bg-black/40 border-white/10" /></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Logo URL</label><Input value={logo} onChange={e => setLogo(e.target.value)} placeholder="https://example.com/logo.png" className="bg-black/40 border-white/10" /></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Hero Artwork URL</label><Input value={artwork} onChange={e => setArtwork(e.target.value)} placeholder="https://example.com/hero.jpg" className="bg-black/40 border-white/10" /></div>
           <NeonButton onClick={saveBranding} size="sm" className="mt-2">Save Branding</NeonButton>
         </CardContent>
       </Card>
 
-      {/* Digital Tips */}
       <Card className="bg-card border-white/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-green-400" /> Tip the Band!</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-green-400" /> Tip the Band!</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">Your payment handles are stored encrypted. They'll appear on the public page so fans can tip you.</p>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Venmo Username</label>
-            <Input value={venmo} onChange={e => setVenmo(e.target.value)} placeholder="@your-venmo" className="bg-black/40 border-white/10" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Zelle Phone / Email</label>
-            <Input value={zelle} onChange={e => setZelle(e.target.value)} placeholder="your@email.com or (555) 000-0000" className="bg-black/40 border-white/10" />
-          </div>
+          <div className="space-y-2"><label className="text-sm font-medium">Venmo Username</label><Input value={venmo} onChange={e => setVenmo(e.target.value)} placeholder="@your-venmo" className="bg-black/40 border-white/10" /></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Zelle Phone / Email</label><Input value={zelle} onChange={e => setZelle(e.target.value)} placeholder="your@email.com or (555) 000-0000" className="bg-black/40 border-white/10" /></div>
           <NeonButton onClick={saveTips} size="sm" className="bg-green-600 hover:bg-green-500 border-green-500/50">
             <DollarSign className="w-4 h-4 mr-1" /> Save Tip Info
           </NeonButton>
         </CardContent>
       </Card>
 
-      {/* Guitar Mode */}
       <Card className="bg-card border-white/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Guitar className="w-5 h-5 text-primary" /> Guitar Player Mode</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Guitar className="w-5 h-5 text-primary" /> Guitar Player Mode</CardTitle></CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
-            <div>
-              <p className="font-bold">Toggle Guitar Mode</p>
-              <p className="text-sm text-muted-foreground">Enable guest guitarist signup on the public page</p>
-            </div>
+            <div><p className="font-bold">Toggle Guitar Mode</p><p className="text-sm text-muted-foreground">Enable guest guitarist signup on the public page</p></div>
             <Switch checked={guitarMode?.value === "true"} onCheckedChange={toggleGuitarMode} />
           </div>
           <div className="space-y-3">
             <label className="text-sm font-medium">Signup Instructions</label>
             <Textarea value={instructions} onChange={e => setInstructions(e.target.value)} placeholder="Explain how guests can sit in..." className="bg-black/40 border-white/10 min-h-[100px]" />
-            <NeonButton onClick={() => updateSetting({ key: "guitar_instructions", value: instructions }, { onSuccess: () => toast({ title: "Instructions updated" }) })} size="sm">
-              Save Instructions
-            </NeonButton>
+            <NeonButton onClick={() => updateSetting({ key: "guitar_instructions", value: instructions }, { onSuccess: () => toast({ title: "Instructions updated" }) })} size="sm">Save Instructions</NeonButton>
           </div>
         </CardContent>
       </Card>
 
-      {/* Spotify */}
       <Card className="bg-card border-white/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -271,25 +237,14 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
             <p className="font-medium text-white">Setup Required</p>
             <p>Create a Spotify app at <span className="text-primary">developer.spotify.com</span>, then enter your Client ID and Secret below. Credentials are stored encrypted.</p>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Client ID</label>
-            <Input value={spotifyClientId} onChange={e => setSpotifyClientId(e.target.value)} placeholder="Your Spotify Client ID" className="bg-black/40 border-white/10 font-mono text-sm" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Client Secret</label>
-            <Input type="password" value={spotifyClientSecret} onChange={e => setSpotifyClientSecret(e.target.value)} placeholder="Your Spotify Client Secret" className="bg-black/40 border-white/10 font-mono text-sm" />
-          </div>
-          <NeonButton onClick={saveSpotify} size="sm" className="bg-green-600 hover:bg-green-500 border-green-500/50">
-            Save Spotify Credentials
-          </NeonButton>
-
+          <div className="space-y-2"><label className="text-sm font-medium">Client ID</label><Input value={spotifyClientId} onChange={e => setSpotifyClientId(e.target.value)} placeholder="Your Spotify Client ID" className="bg-black/40 border-white/10 font-mono text-sm" /></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Client Secret</label><Input type="password" value={spotifyClientSecret} onChange={e => setSpotifyClientSecret(e.target.value)} placeholder="Your Spotify Client Secret" className="bg-black/40 border-white/10 font-mono text-sm" /></div>
+          <NeonButton onClick={saveSpotify} size="sm" className="bg-green-600 hover:bg-green-500 border-green-500/50">Save Spotify Credentials</NeonButton>
           <div className="pt-2 border-t border-white/10 space-y-3">
             <label className="text-sm font-medium">Import from Playlist URL</label>
             <div className="flex gap-2">
               <Input value={playlistUrl} onChange={e => setPlaylistUrl(e.target.value)} placeholder="https://open.spotify.com/playlist/..." className="bg-black/40 border-white/10 flex-1" />
-              <NeonButton size="sm" onClick={importSpotifyPlaylist} isLoading={isImporting}>
-                <Upload className="w-4 h-4" />
-              </NeonButton>
+              <NeonButton size="sm" onClick={importSpotifyPlaylist} isLoading={isImporting}><Upload className="w-4 h-4" /></NeonButton>
             </div>
           </div>
         </CardContent>
@@ -330,12 +285,7 @@ function SongsManager() {
           let count = 0;
           for (const row of results.data as any[]) {
             if (row.title && row.artist) {
-              await apiRequest("POST", "/api/songs", {
-                title: row.title,
-                artist: row.artist,
-                genre: row.genre || "",
-                spotifyUrl: row.spotifyUrl || row.spotify_url || ""
-              });
+              await apiRequest("POST", "/api/songs", { title: row.title, artist: row.artist, genre: row.genre || "", spotifyUrl: row.spotifyUrl || row.spotify_url || "" });
               count++;
             }
           }
@@ -348,16 +298,11 @@ function SongsManager() {
           if (fileInputRef.current) fileInputRef.current.value = "";
         }
       },
-      error: () => {
-        setIsImporting(false);
-        toast({ title: "CSV parse error", variant: "destructive" });
-      }
+      error: () => { setIsImporting(false); toast({ title: "CSV parse error", variant: "destructive" }); }
     });
   };
 
-  const filtered = songs?.filter(s =>
-    !search || s.title.toLowerCase().includes(search.toLowerCase()) || s.artist.toLowerCase().includes(search.toLowerCase())
-  ) || [];
+  const filtered = songs?.filter(s => !search || s.title.toLowerCase().includes(search.toLowerCase()) || s.artist.toLowerCase().includes(search.toLowerCase())) || [];
 
   return (
     <div className="space-y-4">
@@ -374,11 +319,9 @@ function SongsManager() {
           <CreateSongDialog />
         </div>
       </div>
-
       <div className="relative">
         <Input placeholder="Search songs..." value={search} onChange={e => setSearch(e.target.value)} className="bg-white/5 border-white/10 pl-4" />
       </div>
-
       <ScrollArea className="h-[560px] rounded-xl border border-white/10 bg-black/20">
         {isLoading ? (
           <div className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>
@@ -390,6 +333,7 @@ function SongsManager() {
                 <th className="px-4 py-3">Title</th>
                 <th className="px-4 py-3">Artist</th>
                 <th className="px-4 py-3 hidden md:table-cell">Genre</th>
+                <th className="px-4 py-3 hidden md:table-cell">Spotify</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -405,6 +349,11 @@ function SongsManager() {
                   <td className="px-4 py-3 text-muted-foreground">{song.artist}</td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     {song.genre && <span className="px-2 py-1 rounded-full bg-white/10 text-xs">{song.genre}</span>}
+                  </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    {song.spotifyUrl ? (
+                      <a href={song.spotifyUrl} target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300 text-xs underline underline-offset-2">Preview</a>
+                    ) : <span className="text-white/20 text-xs">—</span>}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => handleDelete(song.id)} className="text-muted-foreground hover:text-red-400 p-2 rounded-full transition-all">
@@ -436,9 +385,7 @@ function GuestMusicianManager() {
 
   const handleDismiss = (id: number) => {
     setDismissed(prev => new Set([...prev, id]));
-    setTimeout(() => {
-      deleteGuest(id);
-    }, 300);
+    setTimeout(() => { deleteGuest(id); }, 300);
   };
 
   const handleClearAll = () => {
@@ -482,9 +429,7 @@ function GuestMusicianManager() {
                 drag={guest.status === "completed" ? "x" : false}
                 dragConstraints={{ left: 0, right: 200 }}
                 dragElastic={0.2}
-                onDragEnd={(_, info) => {
-                  if (info.offset.x > 80) handleDismiss(guest.id);
-                }}
+                onDragEnd={(_, info) => { if (info.offset.x > 80) handleDismiss(guest.id); }}
                 className={cn("cursor-default", guest.status === "completed" && "cursor-grab active:cursor-grabbing")}
               >
                 <Card className="bg-card border-white/10 overflow-hidden h-full">
@@ -492,18 +437,14 @@ function GuestMusicianManager() {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="font-display text-lg">{guest.name}</CardTitle>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {guest.instrument} · {guest.numSongs} songs · {format(new Date(guest.createdAt), 'h:mm a')}
-                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{guest.instrument} · {guest.numSongs} songs · {format(new Date(guest.createdAt), 'h:mm a')}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant={guest.status === 'approved' ? 'default' : guest.status === 'completed' ? 'outline' : 'secondary'} className="text-xs">
                           {guest.status.toUpperCase()}
                         </Badge>
                         {guest.status === "completed" && (
-                          <button onClick={() => handleDismiss(guest.id)} className="text-muted-foreground hover:text-red-400 transition-colors">
-                            <X className="w-4 h-4" />
-                          </button>
+                          <button onClick={() => handleDismiss(guest.id)} className="text-muted-foreground hover:text-red-400 transition-colors"><X className="w-4 h-4" /></button>
                         )}
                       </div>
                     </div>
@@ -534,6 +475,162 @@ function GuestMusicianManager() {
   );
 }
 
+// ─── Pre-Signup Manager ────────────────────────────────────────────────────────
+function PreSignupManager() {
+  const { data: preSignups, isLoading } = usePreSignups();
+  const { mutate: deleteOne, isPending: isDeleting } = useDeletePreSignup();
+  const { mutate: clearAll, isPending: isClearing } = useClearPreSignups();
+  const { mutate: updateSetting } = useUpdateSetting();
+  const { data: presignupEnabled } = useSettings("presignup_enabled");
+  const { data: presignupLimit } = useSettings("presignup_limit");
+  const { data: presignupWindowStart } = useSettings("presignup_window_start");
+  const { data: presignupWindowEnd } = useSettings("presignup_window_end");
+  const { toast } = useToast();
+
+  const [limit, setLimit] = useState("50");
+  const [windowStart, setWindowStart] = useState("");
+  const [windowEnd, setWindowEnd] = useState("");
+
+  useEffect(() => { if (presignupLimit?.value) setLimit(presignupLimit.value); }, [presignupLimit]);
+  useEffect(() => {
+    if (presignupWindowStart?.value) {
+      // Convert ISO to datetime-local format
+      const d = new Date(presignupWindowStart.value);
+      setWindowStart(d.toISOString().slice(0, 16));
+    }
+  }, [presignupWindowStart]);
+  useEffect(() => {
+    if (presignupWindowEnd?.value) {
+      const d = new Date(presignupWindowEnd.value);
+      setWindowEnd(d.toISOString().slice(0, 16));
+    }
+  }, [presignupWindowEnd]);
+
+  const isEnabled = presignupEnabled?.value === "true";
+
+  const toggleEnabled = () => {
+    const newVal = isEnabled ? "false" : "true";
+    updateSetting({ key: "presignup_enabled", value: newVal }, {
+      onSuccess: () => toast({ title: `Pre-signup ${newVal === "true" ? "enabled" : "disabled"}` })
+    });
+  };
+
+  const saveConfig = () => {
+    updateSetting({ key: "presignup_limit", value: limit });
+    if (windowStart) updateSetting({ key: "presignup_window_start", value: new Date(windowStart).toISOString() });
+    if (windowEnd) updateSetting({ key: "presignup_window_end", value: new Date(windowEnd).toISOString() }, {
+      onSuccess: () => toast({ title: "Pre-signup settings saved" })
+    });
+  };
+
+  const handleDelete = (id: number) => {
+    deleteOne(id, { onSuccess: () => toast({ title: "Removed pre-signup" }) });
+  };
+
+  const handleClearAll = () => {
+    if (!confirm(`Delete all ${preSignups?.length || 0} pre-signups?`)) return;
+    clearAll(undefined, { onSuccess: () => toast({ title: "All pre-signups cleared" }) });
+  };
+
+  if (isLoading) return <div className="text-center py-12"><Loader2 className="w-8 h-8 animate-spin mx-auto opacity-50" /></div>;
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      {/* Config card */}
+      <Card className="bg-card border-white/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><CalendarCheck className="w-5 h-5 text-blue-400" /> Pre-Signup Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+            <div>
+              <p className="font-bold">Enable Pre-Signup</p>
+              <p className="text-sm text-muted-foreground">Show a "Pre-Register" button on the public page</p>
+            </div>
+            <Switch checked={isEnabled} onCheckedChange={toggleEnabled} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-1.5"><Hash className="w-3.5 h-3.5" /> Spot Limit</label>
+              <Input type="number" min={1} value={limit} onChange={e => setLimit(e.target.value)} placeholder="50" className="bg-black/40 border-white/10" />
+              <p className="text-xs text-muted-foreground">Max number of pre-registrations allowed</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-1.5"><Timer className="w-3.5 h-3.5" /> Window Opens</label>
+              <Input type="datetime-local" value={windowStart} onChange={e => setWindowStart(e.target.value)} className="bg-black/40 border-white/10" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-1.5"><Timer className="w-3.5 h-3.5" /> Window Closes</label>
+              <Input type="datetime-local" value={windowEnd} onChange={e => setWindowEnd(e.target.value)} className="bg-black/40 border-white/10" />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Leave the time window empty to make pre-signup available any time while enabled.</p>
+
+          <NeonButton onClick={saveConfig} size="sm" className="bg-blue-700 hover:bg-blue-600 border-blue-500/50">
+            <CalendarCheck className="w-4 h-4 mr-1.5" /> Save Pre-Signup Settings
+          </NeonButton>
+        </CardContent>
+      </Card>
+
+      {/* Signups list */}
+      <Card className="bg-card border-white/10">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-blue-400" /> Pre-Registered
+              <Badge variant="secondary" className="ml-1">{preSignups?.length || 0}</Badge>
+            </CardTitle>
+            {preSignups && preSignups.length > 0 && (
+              <NeonButton variant="outline" size="sm" onClick={handleClearAll} isLoading={isClearing} className="text-red-400 border-red-400/30 hover:bg-red-950/30">
+                <Trash2 className="w-4 h-4 mr-1" /> Clear All
+              </NeonButton>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!preSignups || preSignups.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <CalendarCheck className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>No pre-signups yet</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-2 pr-3">
+                {preSignups.map((signup, i) => (
+                  <div key={signup.id} className="flex items-center justify-between bg-white/5 px-4 py-3 rounded-xl border border-white/5 group">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono text-muted-foreground w-5">{i + 1}.</span>
+                      <div>
+                        <p className="font-medium">{signup.name}</p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                          {signup.email && <span>{signup.email}</span>}
+                          {signup.phone && <span>{signup.phone}</span>}
+                          <span>{format(new Date(signup.createdAt), 'MMM d, h:mm a')}</span>
+                        </div>
+                        {signup.notes && <p className="text-xs text-white/50 mt-0.5 italic">"{signup.notes}"</p>}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDelete(signup.id)}
+                      className="text-muted-foreground hover:text-red-400 p-1.5 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Queue View ────────────────────────────────────────────────────────────────
 function QueueView() {
   const { data: requests, isLoading } = useRequests();
@@ -558,10 +655,7 @@ function QueueView() {
         </div>
       ) : (
         active.map((req: RequestWithSongs, idx: number) => (
-          <Card key={req.id} className={cn(
-            "bg-card border-white/10 overflow-hidden transition-all duration-300",
-            req.status === 'approved' ? "ring-2 ring-primary shadow-[0_0_20px_-5px_hsl(var(--primary))]" : ""
-          )}>
+          <Card key={req.id} className={cn("bg-card border-white/10 overflow-hidden transition-all duration-300", req.status === 'approved' ? "ring-2 ring-primary shadow-[0_0_20px_-5px_hsl(var(--primary))]" : "")}>
             <CardHeader className="bg-white/5 pb-3">
               <div className="flex justify-between items-start">
                 <div>
@@ -570,8 +664,7 @@ function QueueView() {
                     <CardTitle className="font-display text-xl">{req.participantName}</CardTitle>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                    <Clock className="w-3 h-3" />
-                    {format(new Date(req.createdAt), 'h:mm a')}
+                    <Clock className="w-3 h-3" />{format(new Date(req.createdAt), 'h:mm a')}
                   </div>
                 </div>
                 <Badge variant={req.status === 'approved' ? 'default' : 'secondary'} className="bg-primary/20 text-primary border-primary/20">
@@ -625,18 +718,38 @@ function TriviaManager() {
   const { toast } = useToast();
   const [songTitle, setSongTitle] = useState("");
   const [songArtist, setSongArtist] = useState("");
+  const [questionCount, setQuestionCount] = useState(4);
+  const [questionDuration, setQuestionDuration] = useState(25);
   const { data: requests } = useRequests();
+  const [serverCountdown, setServerCountdown] = useState<number | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync local countdown to server's secondsRemaining
+  useEffect(() => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    if (activeSession?.status === "active" && activeSession.secondsRemaining !== null && activeSession.secondsRemaining !== undefined) {
+      setServerCountdown(Math.ceil(activeSession.secondsRemaining));
+      countdownRef.current = setInterval(() => {
+        setServerCountdown(prev => {
+          if (prev === null || prev <= 0) { clearInterval(countdownRef.current!); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setServerCountdown(null);
+    }
+    return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
+  }, [activeSession?.currentQuestionIndex, activeSession?.secondsRemaining, activeSession?.status]);
 
   const handleCreate = () => {
     if (!songTitle || !songArtist) {
       toast({ title: "Enter song title and artist", variant: "destructive" });
       return;
     }
-    createSession({ songTitle, songArtist }, {
+    createSession({ songTitle, songArtist, questionCount, questionDurationSeconds: questionDuration }, {
       onSuccess: () => {
-        toast({ title: "Trivia session created!", description: "Questions loaded from music trivia database." });
-        setSongTitle("");
-        setSongArtist("");
+        toast({ title: "Trivia session created!", description: `${questionCount} questions · ${questionDuration}s per question. Auto-advances on timer.` });
+        setSongTitle(""); setSongArtist("");
       },
       onError: () => toast({ title: "Failed to create trivia", variant: "destructive" })
     });
@@ -645,18 +758,18 @@ function TriviaManager() {
   const handleStart = () => {
     if (!activeSession) return;
     updateStatus({ id: activeSession.id, status: "active" }, {
-      onSuccess: () => toast({ title: "Trivia started! Question 1 is live." })
+      onSuccess: () => toast({ title: "Trivia started! Questions auto-advance every " + activeSession.questionDurationSeconds + " seconds." })
     });
   };
 
   const handleNext = () => {
     if (!activeSession) return;
     advanceQuestion(activeSession.id, {
-      onSuccess: (session) => {
+      onSuccess: (session: any) => {
         if (session.status === "completed") {
           toast({ title: "Trivia complete! Check the leaderboard." });
         } else {
-          toast({ title: `Question ${session.currentQuestionIndex + 1} now live!` });
+          toast({ title: `Skipped to question ${session.currentQuestionIndex + 1}` });
         }
       }
     });
@@ -675,7 +788,11 @@ function TriviaManager() {
             <CardTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5 text-yellow-400" /> Launch Song Trivia</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">Create a trivia game using music questions. Players on the public page can opt in and play in real time.</p>
+            <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-3 text-sm text-blue-200/80 flex items-start gap-2.5">
+              <Timer className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-400" />
+              <p>Questions <strong>auto-advance on a timer</strong> — just hit Start and you're free to perform. Players see a live countdown.</p>
+            </div>
+
             {pendingRequests.length > 0 && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Quick fill from queue:</label>
@@ -700,6 +817,16 @@ function TriviaManager() {
               <div className="space-y-1">
                 <label className="text-sm font-medium">Artist</label>
                 <Input value={songArtist} onChange={e => setSongArtist(e.target.value)} placeholder="e.g. Queen" className="bg-black/40 border-white/10" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium flex items-center gap-1.5"><Hash className="w-3.5 h-3.5 text-muted-foreground" /> Questions (3–5)</label>
+                <Input type="number" min={3} max={5} value={questionCount} onChange={e => setQuestionCount(parseInt(e.target.value))} className="bg-black/40 border-white/10" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium flex items-center gap-1.5"><Timer className="w-3.5 h-3.5 text-muted-foreground" /> Seconds per Question</label>
+                <Input type="number" min={10} max={60} value={questionDuration} onChange={e => setQuestionDuration(parseInt(e.target.value))} className="bg-black/40 border-white/10" />
               </div>
             </div>
             <NeonButton onClick={handleCreate} isLoading={isCreating} className="w-full">
@@ -737,17 +864,37 @@ function TriviaManager() {
                 <p className="text-xl font-bold">{activeSession.currentQuestionIndex + (activeSession.status === "active" ? 1 : 0)}/{activeSession.totalQuestions}</p>
                 <p className="text-xs text-muted-foreground">Question</p>
               </div>
-              <div className="bg-white/5 rounded-xl p-3 text-center">
-                <Trophy className="w-4 h-4 mx-auto mb-1 text-yellow-400" />
-                <p className="text-xl font-bold truncate">{activeSession.leaderboard[0]?.playerName || "—"}</p>
-                <p className="text-xs text-muted-foreground">Leading</p>
+              <div className={cn("rounded-xl p-3 text-center transition-colors", serverCountdown !== null && serverCountdown <= 5 ? "bg-red-500/20" : "bg-white/5")}>
+                <Timer className={cn("w-4 h-4 mx-auto mb-1", serverCountdown !== null && serverCountdown <= 5 ? "text-red-400" : "text-muted-foreground")} />
+                <p className={cn("text-xl font-bold", serverCountdown !== null && serverCountdown <= 5 && "text-red-300")}>
+                  {serverCountdown !== null ? `${serverCountdown}s` : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground">Remaining</p>
               </div>
             </div>
+
+            {/* Auto-timer note */}
+            {activeSession.status === "active" && (
+              <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-3 text-xs text-blue-200/80 flex items-center gap-2">
+                <Timer className="w-3.5 h-3.5 flex-shrink-0 text-blue-400" />
+                Auto-advancing every {activeSession.questionDurationSeconds}s — you don't need to do anything. Use "Skip" only if needed.
+              </div>
+            )}
 
             {/* Current question preview */}
             {activeSession.status === "active" && activeSession.currentQuestion && (
               <div className="bg-yellow-400/5 border border-yellow-400/20 rounded-xl p-4 space-y-3">
-                <p className="text-sm font-medium text-yellow-300">Current Question:</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-yellow-300">Current Question:</p>
+                  {serverCountdown !== null && (
+                    <div className="w-24 bg-white/10 rounded-full h-1.5">
+                      <div
+                        className={cn("h-1.5 rounded-full transition-all duration-1000", serverCountdown <= 5 ? "bg-red-400" : "bg-yellow-400")}
+                        style={{ width: `${(serverCountdown / activeSession.questionDurationSeconds) * 100}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
                 <p className="font-bold">{activeSession.currentQuestion.question}</p>
                 <div className="grid grid-cols-2 gap-2">
                   {activeSession.currentQuestion.options.map((opt, i) => (
@@ -783,9 +930,9 @@ function TriviaManager() {
                 </NeonButton>
               )}
               {activeSession.status === "active" && (
-                <NeonButton onClick={handleNext} isLoading={isAdvancing} className="flex-1 bg-yellow-600 hover:bg-yellow-500 border-yellow-500/50">
-                  <SkipForward className="w-4 h-4 mr-2" />
-                  {activeSession.currentQuestionIndex + 1 >= activeSession.totalQuestions ? "End Trivia" : "Next Question"}
+                <NeonButton onClick={handleNext} isLoading={isAdvancing} variant="outline" size="sm" className="text-yellow-300 border-yellow-500/30 hover:bg-yellow-950/30">
+                  <SkipForward className="w-4 h-4 mr-1.5" />
+                  {activeSession.currentQuestionIndex + 1 >= activeSession.totalQuestions ? "End Now" : "Skip Question"}
                 </NeonButton>
               )}
               <NeonButton variant="ghost" size="sm" onClick={() => deleteAll(undefined, { onSuccess: () => toast({ title: "Trivia session cleared" }) })} isLoading={isDeleting} className="text-red-400 hover:bg-red-950/30">

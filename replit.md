@@ -52,13 +52,15 @@ Preferred communication style: Simple, everyday language.
 
 ### Band Dashboard Tabs
 1. **Live Queue** - View/approve/reject/complete song requests, sorted by signup time
-2. **Song Management** - Add/delete songs, toggle visibility (eye icon), CSV batch upload
+2. **Song Management** - Add/delete songs, toggle visibility (eye icon), CSV batch upload; Spotify preview links visible in table
 3. **Guest Musicians** - Approve/complete musicians, swipe-to-dismiss completed, Clear All button, auto-sorted by time
-4. **Trivia** - Create trivia sessions using opentdb music API, start/advance/complete questions, view leaderboard
-5. **Settings** - Branding, QR code, Guitar mode, Tip handles (encrypted), Spotify credentials (encrypted) + playlist import
+4. **Pre-Signup** - Event pre-registration management: enable/disable, set spot limit, configure open/close time window, view and delete pre-registrations
+5. **Trivia** - Create trivia sessions using opentdb music API, configurable question count (3–5) and timer (seconds per question), fully automated auto-advance, skip override button; view leaderboard
+6. **Settings** - Branding, QR code, Guitar mode, Tip handles (encrypted), Spotify credentials (encrypted) + playlist import
 
 ### Public Home Page
-- Song catalog browsing with search
+- Song catalog browsing with search; songs show a green Spotify "Preview" link when a Spotify URL exists
+- Pre-Register button (appears when presignup window is open); shows spots remaining; collects name + optional email/phone
 - Select up to 3 songs, submit with name
 - Real-time wait time display (polls /api/queue-info every 15s)
 - Tip the Band! button (shows Venmo/Zelle if configured)

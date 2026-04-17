@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSongs } from "@/hooks/use-songs";
 import { useCreateRequest } from "@/hooks/use-requests";
 import { useSettings } from "@/hooks/use-settings";
 import { useCreateGuestMusician } from "@/hooks/use-guest-musicians";
 import { useActiveTrivia, useJoinTrivia, useSubmitTriviaAnswer } from "@/hooks/use-trivia";
 import { useQueueInfo } from "@/hooks/use-queue-info";
+import { usePreSignupConfig, useCreatePreSignup } from "@/hooks/use-presignup";
 import { SongCard } from "@/components/SongCard";
 import { NeonButton } from "@/components/NeonButton";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Guitar, QrCode, DollarSign, Clock, Trophy, Sparkles } from "lucide-react";
+import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Guitar, QrCode, DollarSign, Clock, Trophy, Sparkles, Users, CalendarCheck } from "lucide-react";
 import { Song, TriviaSessionPublic } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
@@ -37,8 +38,15 @@ export default function Home() {
   const [hasJoined, setHasJoined] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [answerResult, setAnswerResult] = useState<{ correct: boolean; score: number } | null>(null);
-  const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(new Set());
   const [lastSeenQuestionIndex, setLastSeenQuestionIndex] = useState(-1);
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  // Pre-signup state
+  const [showPreSignup, setShowPreSignup] = useState(false);
+  const [preSignupName, setPreSignupName] = useState("");
+  const [preSignupEmail, setPreSignupEmail] = useState("");
+  const [preSignupPhone, setPreSignupPhone] = useState("");
+  const [preSignupDone, setPreSignupDone] = useState(false);
 
   const { data: songs, isLoading } = useSongs(search);
   const { mutate: submitRequest, isPending: isSubmitting } = useCreateRequest();
@@ -53,6 +61,8 @@ export default function Home() {
   const { data: activeTrivia } = useActiveTrivia();
   const { mutate: joinTrivia, isPending: isJoining } = useJoinTrivia();
   const { mutate: submitAnswer, isPending: isSubmittingAnswer } = useSubmitTriviaAnswer();
+  const { data: preSignupConfig } = usePreSignupConfig();
+  const { mutate: createPreSignup, isPending: isPreSigningUp } = useCreatePreSignup();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -68,6 +78,24 @@ export default function Home() {
       setLastSeenQuestionIndex(activeTrivia.currentQuestionIndex);
     }
   }, [activeTrivia?.currentQuestionIndex, activeTrivia?.status, lastSeenQuestionIndex]);
+
+  // Countdown timer synced to server's secondsRemaining
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    if (activeTrivia?.status === "active" && activeTrivia.secondsRemaining !== null && activeTrivia.secondsRemaining !== undefined) {
+      setCountdown(Math.ceil(activeTrivia.secondsRemaining));
+      countdownRef.current = setInterval(() => {
+        setCountdown(prev => {
+          if (prev === null || prev <= 0) { clearInterval(countdownRef.current!); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setCountdown(null);
+    }
+    return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
+  }, [activeTrivia?.currentQuestionIndex, activeTrivia?.secondsRemaining, activeTrivia?.status]);
 
   const hasTips = tipHandles.venmo || tipHandles.zelle;
   const shareUrl = `${window.location.origin}/`;
@@ -121,7 +149,7 @@ export default function Home() {
     joinTrivia({ sessionId: activeTrivia.id, playerName: triviaPlayerName }, {
       onSuccess: () => {
         setHasJoined(true);
-        toast({ title: "You're in!", description: "Trivia starting soon. Get ready!" });
+        toast({ title: "You're in!", description: "Get ready to play!" });
       }
     });
   };
@@ -130,10 +158,18 @@ export default function Home() {
     if (!activeTrivia || selectedAnswer !== null || !hasJoined) return;
     setSelectedAnswer(answerIndex);
     submitAnswer({ sessionId: activeTrivia.id, playerName: triviaPlayerName, answerIndex }, {
-      onSuccess: (result) => {
-        setAnswerResult(result);
-        setAnsweredQuestions(prev => new Set([...prev, activeTrivia.currentQuestionIndex]));
-      }
+      onSuccess: (result) => setAnswerResult(result)
+    });
+  };
+
+  const handlePreSignup = () => {
+    if (!preSignupName.trim()) {
+      toast({ title: "Name Required", variant: "destructive" });
+      return;
+    }
+    createPreSignup({ name: preSignupName, email: preSignupEmail || undefined, phone: preSignupPhone || undefined }, {
+      onSuccess: () => setPreSignupDone(true),
+      onError: (err: any) => toast({ title: "Registration Failed", description: err.message, variant: "destructive" })
     });
   };
 
@@ -164,6 +200,16 @@ export default function Home() {
 
           {/* Action buttons */}
           <div className="flex flex-wrap justify-center gap-2 mt-6">
+            {preSignupConfig?.isOpen && (
+              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.25 }}>
+                <NeonButton onClick={() => setShowPreSignup(true)} variant="outline" size="sm" className="rounded-full border-blue-500/30 bg-blue-500/10 text-blue-300">
+                  <CalendarCheck className="w-4 h-4 mr-2" /> Pre-Register
+                  {preSignupConfig.spotsRemaining <= 10 && (
+                    <span className="ml-1 text-xs font-bold text-orange-300">({preSignupConfig.spotsRemaining} left!)</span>
+                  )}
+                </NeonButton>
+              </motion.div>
+            )}
             {guitarMode?.value === "true" && (
               <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }}>
                 <NeonButton onClick={() => setShowGuestSignup(true)} variant="outline" size="sm" className="rounded-full border-primary/30 bg-primary/5 text-primary">
@@ -251,6 +297,55 @@ export default function Home() {
         )}
       </AnimatePresence>
 
+      {/* Pre-Signup Dialog */}
+      <Dialog open={showPreSignup} onOpenChange={(open) => { setShowPreSignup(open); if (!open) { setPreSignupDone(false); setPreSignupName(""); setPreSignupEmail(""); setPreSignupPhone(""); } }}>
+        <DialogContent className="bg-card border-white/10 sm:max-w-sm">
+          {preSignupDone ? (
+            <>
+              <div className="mx-auto w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center mb-4 text-blue-400 mt-4">
+                <CalendarCheck className="w-8 h-8" />
+              </div>
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-display text-center">You're Pre-Registered!</DialogTitle>
+                <DialogDescription className="text-center pt-1">We've got your spot saved, {preSignupName}. See you at the show!</DialogDescription>
+              </DialogHeader>
+              <NeonButton onClick={() => { setShowPreSignup(false); setPreSignupDone(false); }} variant="outline" className="w-full mt-4">Close</NeonButton>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-blue-300"><CalendarCheck className="w-5 h-5" /> Pre-Register for the Show</DialogTitle>
+                <DialogDescription className="pt-1">
+                  Reserve your spot early.
+                  {preSignupConfig && (
+                    <span className="block mt-1 text-sm font-medium text-white/80">{preSignupConfig.spotsRemaining} of {preSignupConfig.limit} spots remaining</span>
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Your Name <span className="text-red-400">*</span></label>
+                  <Input value={preSignupName} onChange={e => setPreSignupName(e.target.value)} placeholder="Enter your name..." className="bg-black/40 border-white/10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-muted-foreground">Email <span className="text-xs">(optional)</span></label>
+                  <Input type="email" value={preSignupEmail} onChange={e => setPreSignupEmail(e.target.value)} placeholder="your@email.com" className="bg-black/40 border-white/10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-muted-foreground">Phone <span className="text-xs">(optional)</span></label>
+                  <Input type="tel" value={preSignupPhone} onChange={e => setPreSignupPhone(e.target.value)} placeholder="(555) 000-0000" className="bg-black/40 border-white/10" />
+                </div>
+              </div>
+              <DialogFooter>
+                <NeonButton className="w-full bg-blue-700 hover:bg-blue-600 border-blue-500/50" onClick={handlePreSignup} isLoading={isPreSigningUp}>
+                  <CalendarCheck className="w-4 h-4 mr-2" /> Save My Spot
+                </NeonButton>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Guest Signup */}
       <Dialog open={showGuestSignup} onOpenChange={setShowGuestSignup}>
         <DialogContent className="bg-card border-white/10">
@@ -285,19 +380,13 @@ export default function Home() {
             {tipHandles.venmo && (
               <a href={`https://venmo.com/${tipHandles.venmo.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 bg-[#3D95CE]/10 border border-[#3D95CE]/30 rounded-xl p-4 hover:bg-[#3D95CE]/20 transition-colors">
                 <div className="w-12 h-12 rounded-xl bg-[#3D95CE] flex items-center justify-center text-white font-bold text-xl">V</div>
-                <div>
-                  <p className="font-bold text-[#3D95CE]">Venmo</p>
-                  <p className="text-white font-medium">{tipHandles.venmo}</p>
-                </div>
+                <div><p className="font-bold text-[#3D95CE]">Venmo</p><p className="text-white font-medium">{tipHandles.venmo}</p></div>
               </a>
             )}
             {tipHandles.zelle && (
               <div className="flex items-center gap-4 bg-purple-500/10 border border-purple-500/30 rounded-xl p-4">
                 <div className="w-12 h-12 rounded-xl bg-purple-600 flex items-center justify-center text-white font-bold text-xl">Z</div>
-                <div>
-                  <p className="font-bold text-purple-400">Zelle</p>
-                  <p className="text-white font-medium">{tipHandles.zelle}</p>
-                </div>
+                <div><p className="font-bold text-purple-400">Zelle</p><p className="text-white font-medium">{tipHandles.zelle}</p></div>
               </div>
             )}
           </div>
@@ -337,7 +426,6 @@ export default function Home() {
               </DialogHeader>
 
               {!hasJoined ? (
-                /* Join screen */
                 <div className="space-y-4 py-2">
                   {activeTrivia.status === "waiting" ? (
                     <div className="bg-yellow-400/10 border border-yellow-400/20 rounded-xl p-4 text-center">
@@ -362,24 +450,42 @@ export default function Home() {
                   </NeonButton>
                 </div>
               ) : activeTrivia.status === "waiting" ? (
-                /* Waiting room */
                 <div className="py-6 text-center space-y-3">
                   <div className="w-16 h-16 rounded-full bg-yellow-400/20 flex items-center justify-center mx-auto">
                     <Sparkles className="w-8 h-8 text-yellow-300 animate-pulse" />
                   </div>
                   <p className="font-bold text-lg">You're in, {triviaPlayerName}!</p>
-                  <p className="text-muted-foreground text-sm">Waiting for the band to start the trivia...</p>
+                  <p className="text-muted-foreground text-sm">Trivia will start automatically soon...</p>
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Users className="w-4 h-4" /> {activeTrivia.participantCount} players ready
                   </div>
                 </div>
               ) : activeTrivia.status === "active" && activeTrivia.currentQuestion ? (
-                /* Active question */
                 <div className="space-y-4 py-2">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Question {activeTrivia.currentQuestionIndex + 1} of {activeTrivia.totalQuestions}</span>
-                    <span className="text-yellow-300 font-medium">{triviaPlayerName}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Question {activeTrivia.currentQuestionIndex + 1} of {activeTrivia.totalQuestions}</span>
+                    {countdown !== null && (
+                      <div className={cn(
+                        "flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold transition-colors",
+                        countdown <= 5 ? "bg-red-500/20 text-red-300 border border-red-500/30" : "bg-yellow-400/10 text-yellow-300 border border-yellow-400/20"
+                      )}>
+                        <Clock className="w-3.5 h-3.5" />
+                        {countdown}s
+                      </div>
+                    )}
+                    <span className="text-yellow-300 font-medium text-xs">{triviaPlayerName}</span>
                   </div>
+
+                  {/* Countdown progress bar */}
+                  {countdown !== null && activeTrivia.questionDurationSeconds && (
+                    <div className="w-full bg-white/10 rounded-full h-1.5">
+                      <div
+                        className={cn("h-1.5 rounded-full transition-all duration-1000", countdown <= 5 ? "bg-red-400" : "bg-yellow-400")}
+                        style={{ width: `${(countdown / activeTrivia.questionDurationSeconds) * 100}%` }}
+                      />
+                    </div>
+                  )}
+
                   <div className="bg-yellow-400/5 border border-yellow-400/20 rounded-xl p-4">
                     <p className="font-bold text-base leading-snug">{activeTrivia.currentQuestion.question}</p>
                   </div>
@@ -387,14 +493,15 @@ export default function Home() {
                     {activeTrivia.currentQuestion.options.map((opt, i) => (
                       <button
                         key={i}
-                        disabled={selectedAnswer !== null || isSubmittingAnswer}
+                        disabled={selectedAnswer !== null || isSubmittingAnswer || countdown === 0}
                         onClick={() => handleAnswer(i)}
                         className={cn(
                           "w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-all",
-                          selectedAnswer === null && "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20",
+                          selectedAnswer === null && countdown !== 0 && "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20",
                           selectedAnswer !== null && i === activeTrivia.currentQuestion!.correctIndex && "bg-green-500/20 border-green-500/50 text-green-300",
                           selectedAnswer === i && i !== activeTrivia.currentQuestion!.correctIndex && "bg-red-500/20 border-red-500/50 text-red-300",
-                          selectedAnswer !== null && i !== selectedAnswer && i !== activeTrivia.currentQuestion!.correctIndex && "opacity-50 bg-white/5 border-white/10"
+                          selectedAnswer !== null && i !== selectedAnswer && i !== activeTrivia.currentQuestion!.correctIndex && "opacity-50 bg-white/5 border-white/10",
+                          countdown === 0 && selectedAnswer === null && "opacity-50 cursor-not-allowed"
                         )}
                       >
                         <span className="font-mono text-muted-foreground mr-2">{String.fromCharCode(65 + i)}.</span>
@@ -407,9 +514,11 @@ export default function Home() {
                       {answerResult.correct ? "✓ Correct! +1 point" : "✗ Wrong answer"} · Score: {answerResult.score}
                     </div>
                   )}
+                  {countdown === 0 && selectedAnswer === null && (
+                    <div className="text-center py-2 text-sm text-muted-foreground">⏰ Time's up! Next question coming...</div>
+                  )}
                 </div>
               ) : activeTrivia.status === "completed" ? (
-                /* Results */
                 <div className="space-y-4 py-2">
                   <div className="text-center">
                     <Trophy className="w-12 h-12 text-yellow-300 mx-auto mb-2" />
@@ -482,9 +591,7 @@ export default function Home() {
           </div>
           <DialogHeader>
             <DialogTitle className="text-2xl font-display">You're on the list!</DialogTitle>
-            <DialogDescription className="text-muted-foreground pt-2">
-              Your request is in. Listen for your name!
-            </DialogDescription>
+            <DialogDescription className="text-muted-foreground pt-2">Your request is in. Listen for your name!</DialogDescription>
           </DialogHeader>
           {queueInfo && queueInfo.queueLength > 0 && (
             <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
