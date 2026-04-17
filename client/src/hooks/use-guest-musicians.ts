@@ -34,3 +34,27 @@ export function useUpdateGuestStatus() {
     },
   });
 }
+
+export function useDeleteGuest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/guest-musicians/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.guestMusicians.list.path] });
+    },
+  });
+}
+
+export function useClearCompletedGuests() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", "/api/guest-musicians/completed/all");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.guestMusicians.list.path] });
+    },
+  });
+}

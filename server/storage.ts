@@ -1,12 +1,13 @@
 import { db } from "./db";
 import {
-  songs, requests, requestSongs, users, settings, guestMusicians,
+  songs, requests, requestSongs, users, settings, guestMusicians, triviaSessions, triviaParticipants,
   type Song, type InsertSong, type UpdateSongRequest,
   type Request, type CreateRequestInput, type RequestWithSongs,
   type UpdateRequestStatusInput, type User, type UpsertUser,
-  type Setting, type GuestMusician, type CreateGuestMusicianInput
+  type Setting, type GuestMusician, type CreateGuestMusicianInput,
+  type TriviaSession, type TriviaParticipant, type TriviaQuestion, type TriviaSessionPublic
 } from "@shared/schema";
-import { eq, ilike, desc, inArray, and } from "drizzle-orm";
+import { eq, ilike, desc, asc, inArray, and } from "drizzle-orm";
 import { IAuthStorage } from "./replit_integrations/auth/storage";
 
 export interface IStorage extends IAuthStorage {
@@ -16,6 +17,7 @@ export interface IStorage extends IAuthStorage {
   createSong(song: InsertSong): Promise<Song>;
   updateSong(id: number, updates: UpdateSongRequest): Promise<Song>;
   deleteSong(id: number): Promise<void>;
+  toggleSongActive(id: number): Promise<Song>;
 
   // Requests
   getRequests(status?: string): Promise<RequestWithSongs[]>;
@@ -31,6 +33,19 @@ export interface IStorage extends IAuthStorage {
   getGuestMusicians(): Promise<GuestMusician[]>;
   createGuestMusician(input: CreateGuestMusicianInput): Promise<GuestMusician>;
   updateGuestMusicianStatus(id: number, status: string): Promise<GuestMusician>;
+  deleteGuestMusician(id: number): Promise<void>;
+  clearCompletedGuests(): Promise<void>;
+
+  // Trivia
+  createTriviaSession(songTitle: string, songArtist: string, questions: TriviaQuestion[]): Promise<TriviaSession>;
+  getActiveTriviaSession(): Promise<TriviaSessionPublic | null>;
+  getTriviaSession(id: number): Promise<TriviaSession | undefined>;
+  updateTriviaSessionStatus(id: number, status: "waiting" | "active" | "completed"): Promise<TriviaSession>;
+  advanceTriviaQuestion(id: number): Promise<TriviaSession>;
+  joinTrivia(sessionId: number, playerName: string): Promise<TriviaParticipant>;
+  submitTriviaAnswer(sessionId: number, playerName: string, answerIndex: number): Promise<{ correct: boolean; score: number }>;
+  getTriviaLeaderboard(sessionId: number): Promise<{ playerName: string; score: number }[]>;
+  deleteAllTriviaSessions(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -46,10 +61,7 @@ export class DatabaseStorage implements IStorage {
       .values(userData)
       .onConflictDoUpdate({
         target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
+        set: { ...userData, updatedAt: new Date() },
       })
       .returning();
     return user;
@@ -59,12 +71,12 @@ export class DatabaseStorage implements IStorage {
   async getSongs(search?: string, activeOnly: boolean = true): Promise<Song[]> {
     let query = db.select().from(songs);
     if (activeOnly) {
-        query = query.where(eq(songs.isActive, true)) as any;
+      query = query.where(eq(songs.isActive, true)) as any;
     }
     const results = await query.orderBy(desc(songs.createdAt));
     if (search) {
-        const lower = search.toLowerCase();
-        return results.filter(s => s.title.toLowerCase().includes(lower) || s.artist.toLowerCase().includes(lower));
+      const lower = search.toLowerCase();
+      return results.filter(s => s.title.toLowerCase().includes(lower) || s.artist.toLowerCase().includes(lower));
     }
     return results;
   }
@@ -88,84 +100,61 @@ export class DatabaseStorage implements IStorage {
     await db.delete(songs).where(eq(songs.id, id));
   }
 
+  async toggleSongActive(id: number): Promise<Song> {
+    const [song] = await db.select().from(songs).where(eq(songs.id, id));
+    const [updated] = await db.update(songs).set({ isActive: !song.isActive }).where(eq(songs.id, id)).returning();
+    return updated;
+  }
+
   // === Request Methods ===
   async getRequests(status?: string): Promise<RequestWithSongs[]> {
     let requestQuery = db.select().from(requests);
     if (status && status !== 'all') {
       requestQuery = requestQuery.where(eq(requests.status, status as any)) as any;
     }
-    const requestList = await requestQuery.orderBy(desc(requests.createdAt));
+    const requestList = await requestQuery.orderBy(asc(requests.createdAt));
     if (requestList.length === 0) return [];
     const requestIds = requestList.map(r => r.id);
     const songsMap = await db
-        .select({
-            requestId: requestSongs.requestId,
-            song: songs,
-            preferenceOrder: requestSongs.preferenceOrder
-        })
-        .from(requestSongs)
-        .innerJoin(songs, eq(requestSongs.songId, songs.id))
-        .where(inArray(requestSongs.requestId, requestIds));
+      .select({ requestId: requestSongs.requestId, song: songs, preferenceOrder: requestSongs.preferenceOrder })
+      .from(requestSongs)
+      .innerJoin(songs, eq(requestSongs.songId, songs.id))
+      .where(inArray(requestSongs.requestId, requestIds));
     return requestList.map(req => {
-        const reqSongs = songsMap
-            .filter(sm => sm.requestId === req.id)
-            .sort((a, b) => a.preferenceOrder - b.preferenceOrder)
-            .map(sm => ({
-                requestId: sm.requestId,
-                songId: sm.song.id,
-                preferenceOrder: sm.preferenceOrder,
-                id: 0,
-                song: sm.song
-            }));
-        return { ...req, songs: reqSongs as any };
+      const reqSongs = songsMap
+        .filter(sm => sm.requestId === req.id)
+        .sort((a, b) => a.preferenceOrder - b.preferenceOrder)
+        .map(sm => ({ requestId: sm.requestId, songId: sm.song.id, preferenceOrder: sm.preferenceOrder, id: 0, song: sm.song }));
+      return { ...req, songs: reqSongs as any };
     });
   }
 
   async createRequest(input: CreateRequestInput): Promise<RequestWithSongs> {
     return await db.transaction(async (tx) => {
-        const [newRequest] = await tx.insert(requests).values({
-            participantName: input.participantName,
-            status: "pending"
-        }).returning();
-        let order = 1;
-        for (const songId of input.songIds) {
-            await tx.insert(requestSongs).values({
-                requestId: newRequest.id,
-                songId: songId,
-                preferenceOrder: order++
-            });
-        }
-        const selectedSongs = await tx.select().from(songs).where(inArray(songs.id, input.songIds));
-        const orderedSongs = input.songIds.map((id, index) => {
-            const s = selectedSongs.find(s => s.id === id);
-            return {
-                id: 0,
-                requestId: newRequest.id,
-                songId: id,
-                preferenceOrder: index + 1,
-                song: s!
-            };
-        });
-        return { ...newRequest, songs: orderedSongs };
+      const [newRequest] = await tx.insert(requests).values({ participantName: input.participantName, status: "pending" }).returning();
+      let order = 1;
+      for (const songId of input.songIds) {
+        await tx.insert(requestSongs).values({ requestId: newRequest.id, songId, preferenceOrder: order++ });
+      }
+      const selectedSongs = await tx.select().from(songs).where(inArray(songs.id, input.songIds));
+      const orderedSongs = input.songIds.map((id, index) => {
+        const s = selectedSongs.find(s => s.id === id);
+        return { id: 0, requestId: newRequest.id, songId: id, preferenceOrder: index + 1, song: s! };
+      });
+      return { ...newRequest, songs: orderedSongs };
     });
   }
 
   async updateRequestStatus(id: number, status: string): Promise<RequestWithSongs> {
     const [updated] = await db.update(requests).set({ status: status as any }).where(eq(requests.id, id)).returning();
     const songsMap = await db
-        .select({
-            requestId: requestSongs.requestId,
-            song: songs,
-            preferenceOrder: requestSongs.preferenceOrder
-        })
-        .from(requestSongs)
-        .innerJoin(songs, eq(requestSongs.songId, songs.id))
-        .where(eq(requestSongs.requestId, id));
+      .select({ requestId: requestSongs.requestId, song: songs, preferenceOrder: requestSongs.preferenceOrder })
+      .from(requestSongs)
+      .innerJoin(songs, eq(requestSongs.songId, songs.id))
+      .where(eq(requestSongs.requestId, id));
     return {
-        ...updated,
-        songs: songsMap.map(sm => ({
-             id: 0, requestId: sm.requestId, songId: sm.song.id, preferenceOrder: sm.preferenceOrder, song: sm.song
-        }))
+      ...updated,
+      songs: songsMap.map(sm => ({ id: 0, requestId: sm.requestId, songId: sm.song.id, preferenceOrder: sm.preferenceOrder, song: sm.song }))
     } as any;
   }
 
@@ -184,17 +173,14 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .insert(settings)
       .values({ key, value })
-      .onConflictDoUpdate({
-        target: settings.key,
-        set: { value },
-      })
+      .onConflictDoUpdate({ target: settings.key, set: { value } })
       .returning();
     return updated.value;
   }
 
   // === Guest Musician Methods ===
   async getGuestMusicians(): Promise<GuestMusician[]> {
-    return await db.select().from(guestMusicians).orderBy(desc(guestMusicians.createdAt));
+    return await db.select().from(guestMusicians).orderBy(asc(guestMusicians.createdAt));
   }
 
   async createGuestMusician(input: CreateGuestMusicianInput): Promise<GuestMusician> {
@@ -203,12 +189,154 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateGuestMusicianStatus(id: number, status: string): Promise<GuestMusician> {
-    const [updated] = await db
-      .update(guestMusicians)
-      .set({ status: status as any })
-      .where(eq(guestMusicians.id, id))
+    const [updated] = await db.update(guestMusicians).set({ status: status as any }).where(eq(guestMusicians.id, id)).returning();
+    return updated;
+  }
+
+  async deleteGuestMusician(id: number): Promise<void> {
+    await db.delete(guestMusicians).where(eq(guestMusicians.id, id));
+  }
+
+  async clearCompletedGuests(): Promise<void> {
+    await db.delete(guestMusicians).where(eq(guestMusicians.status, "completed"));
+  }
+
+  // === Trivia Methods ===
+  async createTriviaSession(songTitle: string, songArtist: string, questions: TriviaQuestion[]): Promise<TriviaSession> {
+    const [session] = await db.insert(triviaSessions).values({
+      songTitle,
+      songArtist,
+      questions: JSON.stringify(questions),
+      status: "waiting",
+      currentQuestionIndex: 0,
+    }).returning();
+    return session;
+  }
+
+  async getActiveTriviaSession(): Promise<TriviaSessionPublic | null> {
+    const [session] = await db.select().from(triviaSessions)
+      .where(eq(triviaSessions.status, "active"))
+      .orderBy(desc(triviaSessions.createdAt))
+      .limit(1);
+
+    // Also check for waiting sessions
+    if (!session) {
+      const [waiting] = await db.select().from(triviaSessions)
+        .where(eq(triviaSessions.status, "waiting"))
+        .orderBy(desc(triviaSessions.createdAt))
+        .limit(1);
+      if (!waiting) return null;
+      const participants = await db.select().from(triviaParticipants).where(eq(triviaParticipants.sessionId, waiting.id));
+      return {
+        id: waiting.id,
+        songTitle: waiting.songTitle,
+        songArtist: waiting.songArtist,
+        status: "waiting",
+        currentQuestionIndex: 0,
+        currentQuestion: null,
+        questionStartedAt: null,
+        totalQuestions: JSON.parse(waiting.questions).length,
+        participantCount: participants.length,
+        leaderboard: [],
+      };
+    }
+
+    const questions: TriviaQuestion[] = JSON.parse(session.questions);
+    const participants = await db.select().from(triviaParticipants).where(eq(triviaParticipants.sessionId, session.id));
+    const leaderboard = participants
+      .map(p => ({ playerName: p.playerName, score: p.score }))
+      .sort((a, b) => b.score - a.score);
+
+    return {
+      id: session.id,
+      songTitle: session.songTitle,
+      songArtist: session.songArtist,
+      status: session.status as "waiting" | "active" | "completed",
+      currentQuestionIndex: session.currentQuestionIndex,
+      currentQuestion: questions[session.currentQuestionIndex] || null,
+      questionStartedAt: session.questionStartedAt?.toISOString() || null,
+      totalQuestions: questions.length,
+      participantCount: participants.length,
+      leaderboard,
+    };
+  }
+
+  async getTriviaSession(id: number): Promise<TriviaSession | undefined> {
+    const [session] = await db.select().from(triviaSessions).where(eq(triviaSessions.id, id));
+    return session;
+  }
+
+  async updateTriviaSessionStatus(id: number, status: "waiting" | "active" | "completed"): Promise<TriviaSession> {
+    const updates: any = { status };
+    if (status === "active") updates.questionStartedAt = new Date();
+    const [updated] = await db.update(triviaSessions).set(updates).where(eq(triviaSessions.id, id)).returning();
+    return updated;
+  }
+
+  async advanceTriviaQuestion(id: number): Promise<TriviaSession> {
+    const [session] = await db.select().from(triviaSessions).where(eq(triviaSessions.id, id));
+    const questions: TriviaQuestion[] = JSON.parse(session.questions);
+    const nextIndex = session.currentQuestionIndex + 1;
+    if (nextIndex >= questions.length) {
+      const [updated] = await db.update(triviaSessions)
+        .set({ status: "completed", currentQuestionIndex: nextIndex })
+        .where(eq(triviaSessions.id, id))
+        .returning();
+      return updated;
+    }
+    const [updated] = await db.update(triviaSessions)
+      .set({ currentQuestionIndex: nextIndex, questionStartedAt: new Date() })
+      .where(eq(triviaSessions.id, id))
       .returning();
     return updated;
+  }
+
+  async joinTrivia(sessionId: number, playerName: string): Promise<TriviaParticipant> {
+    const existing = await db.select().from(triviaParticipants)
+      .where(and(eq(triviaParticipants.sessionId, sessionId), eq(triviaParticipants.playerName, playerName)));
+    if (existing.length > 0) return existing[0];
+    const [participant] = await db.insert(triviaParticipants)
+      .values({ sessionId, playerName, answers: "[]", score: 0 })
+      .returning();
+    return participant;
+  }
+
+  async submitTriviaAnswer(sessionId: number, playerName: string, answerIndex: number): Promise<{ correct: boolean; score: number }> {
+    const [session] = await db.select().from(triviaSessions).where(eq(triviaSessions.id, sessionId));
+    const questions: TriviaQuestion[] = JSON.parse(session.questions);
+    const currentQ = questions[session.currentQuestionIndex];
+    const correct = currentQ && answerIndex === currentQ.correctIndex;
+
+    const [participant] = await db.select().from(triviaParticipants)
+      .where(and(eq(triviaParticipants.sessionId, sessionId), eq(triviaParticipants.playerName, playerName)));
+    if (!participant) return { correct: false, score: 0 };
+
+    const answers = JSON.parse(participant.answers);
+    // Only record if not already answered this question
+    if (answers.length <= session.currentQuestionIndex) {
+      answers.push(answerIndex);
+      const newScore = participant.score + (correct ? 1 : 0);
+      await db.update(triviaParticipants)
+        .set({ answers: JSON.stringify(answers), score: newScore })
+        .where(eq(triviaParticipants.id, participant.id));
+      return { correct: !!correct, score: newScore };
+    }
+    return { correct: !!correct, score: participant.score };
+  }
+
+  async getTriviaLeaderboard(sessionId: number): Promise<{ playerName: string; score: number }[]> {
+    const participants = await db.select().from(triviaParticipants)
+      .where(eq(triviaParticipants.sessionId, sessionId))
+      .orderBy(desc(triviaParticipants.score));
+    return participants.map(p => ({ playerName: p.playerName, score: p.score }));
+  }
+
+  async deleteAllTriviaSessions(): Promise<void> {
+    const sessions = await db.select().from(triviaSessions);
+    for (const s of sessions) {
+      await db.delete(triviaParticipants).where(eq(triviaParticipants.sessionId, s.id));
+    }
+    await db.delete(triviaSessions);
   }
 }
 

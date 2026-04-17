@@ -46,6 +46,26 @@ export const guestMusicians = pgTable("guest_musicians", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const triviaSessions = pgTable("trivia_sessions", {
+  id: serial("id").primaryKey(),
+  songTitle: text("song_title").notNull(),
+  songArtist: text("song_artist").notNull(),
+  questions: text("questions").notNull(), // JSON: TriviaQuestion[]
+  status: text("status", { enum: ["waiting", "active", "completed"] }).default("waiting").notNull(),
+  currentQuestionIndex: integer("current_question_index").default(0).notNull(),
+  questionStartedAt: timestamp("question_started_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const triviaParticipants = pgTable("trivia_participants", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").references(() => triviaSessions.id).notNull(),
+  playerName: text("player_name").notNull(),
+  answers: text("answers").notNull().default("[]"), // JSON: number[]
+  score: integer("score").default(0).notNull(),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
 // === RELATIONS ===
 import { relations } from "drizzle-orm";
 
@@ -64,6 +84,17 @@ export const requestSongsRelations = relations(requestSongs, ({ one }) => ({
   }),
 }));
 
+export const triviaSessionsRelations = relations(triviaSessions, ({ many }) => ({
+  participants: many(triviaParticipants),
+}));
+
+export const triviaParticipantsRelations = relations(triviaParticipants, ({ one }) => ({
+  session: one(triviaSessions, {
+    fields: [triviaParticipants.sessionId],
+    references: [triviaSessions.id],
+  }),
+}));
+
 // === BASE SCHEMAS ===
 export const insertSongSchema = createInsertSchema(songs).omit({ id: true, createdAt: true });
 export const insertRequestSchema = createInsertSchema(requests).omit({ id: true, createdAt: true, status: true });
@@ -74,6 +105,26 @@ export const createRequestSchema = z.object({
   songIds: z.array(z.number()).min(1, "At least one song must be selected").max(3, "Maximum 3 songs allowed"),
 });
 
+// === TRIVIA TYPES ===
+export interface TriviaQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+}
+
+export interface TriviaSessionPublic {
+  id: number;
+  songTitle: string;
+  songArtist: string;
+  status: "waiting" | "active" | "completed";
+  currentQuestionIndex: number;
+  currentQuestion: TriviaQuestion | null;
+  questionStartedAt: string | null;
+  totalQuestions: number;
+  participantCount: number;
+  leaderboard: { playerName: string; score: number }[];
+}
+
 // === EXPLICIT API CONTRACT TYPES ===
 export type Song = typeof songs.$inferSelect;
 export type InsertSong = z.infer<typeof insertSongSchema>;
@@ -81,6 +132,8 @@ export type Request = typeof requests.$inferSelect;
 export type RequestSong = typeof requestSongs.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type GuestMusician = typeof guestMusicians.$inferSelect;
+export type TriviaSession = typeof triviaSessions.$inferSelect;
+export type TriviaParticipant = typeof triviaParticipants.$inferSelect;
 
 export type RequestWithSongs = Request & {
   songs: (RequestSong & { song: Song })[];
