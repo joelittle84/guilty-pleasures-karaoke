@@ -109,6 +109,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const { data: businessInfo } = useSettings("business_info");
   const { data: logoUrl } = useSettings("logo_url");
   const { data: artworkUrl } = useSettings("hero_artwork_url");
+  const { data: savedPlaylistUrl } = useSettings("spotify_playlist_url");
   const { mutate: updateSetting, isPending: isSaving } = useUpdateSetting();
   const { toast } = useToast();
 
@@ -123,6 +124,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const [spotifyClientSecret, setSpotifyClientSecret] = useState("");
   const [playlistUrl, setPlaylistUrl] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => { if (guitarInstructions?.value) setInstructions(guitarInstructions.value); }, [guitarInstructions]);
   useEffect(() => { if (businessName?.value) setName(businessName.value); }, [businessName]);
@@ -168,12 +170,28 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Import failed");
       queryClient.invalidateQueries({ queryKey: ["/api/songs"] });
-      toast({ title: "Spotify Import Complete", description: `Imported ${data.imported} songs from playlist.` });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/spotify_playlist_url"] });
+      toast({ title: "Spotify Import Complete", description: `Imported ${data.imported} new songs${data.skipped ? ` · ${data.skipped} duplicates skipped` : ""}.` });
       setPlaylistUrl("");
     } catch (err: any) {
       toast({ title: "Import Failed", description: err.message, variant: "destructive" });
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const syncSpotifyPlaylist = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await apiRequest("POST", "/api/songs/sync-spotify", {});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Sync failed");
+      queryClient.invalidateQueries({ queryKey: ["/api/songs"] });
+      toast({ title: "Playlist Synced", description: `Added ${data.imported} new songs · ${data.skipped} already in catalog.` });
+    } catch (err: any) {
+      toast({ title: "Sync Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -183,7 +201,21 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
         <CardHeader><CardTitle className="flex items-center gap-2"><QrCode className="w-5 h-5 text-primary" /> Share Your Show</CardTitle></CardHeader>
         <CardContent className="flex flex-col items-center p-8 space-y-4">
           <div className="p-4 bg-white rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.1)]"><QRCodeSVG value={shareUrl} size={200} /></div>
-          <p className="text-sm text-muted-foreground">{shareUrl}</p>
+          <p className="text-sm text-muted-foreground" data-testid="text-share-url">{shareUrl}</p>
+          <p className="text-xs text-muted-foreground/70 text-center">Public-facing fan page · safe to print on table tents and posters</p>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card border-purple-500/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-purple-300"><QrCode className="w-5 h-5" /> Band Dashboard (Private)</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center p-8 space-y-4">
+          <div className="p-4 bg-white rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.25)]"><QRCodeSVG value={`${window.location.origin}/band`} size={200} /></div>
+          <p className="text-sm text-muted-foreground font-mono" data-testid="text-band-url">{window.location.origin}/band</p>
+          <p className="text-xs text-muted-foreground/70 text-center max-w-xs">
+            Scan this from another phone or share with bandmates. Login is required, so it's safe to bookmark — but don't print this on anything fans see.
+          </p>
         </CardContent>
       </Card>
 
@@ -243,9 +275,23 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
           <div className="pt-2 border-t border-white/10 space-y-3">
             <label className="text-sm font-medium">Import from Playlist URL</label>
             <div className="flex gap-2">
-              <Input value={playlistUrl} onChange={e => setPlaylistUrl(e.target.value)} placeholder="https://open.spotify.com/playlist/..." className="bg-black/40 border-white/10 flex-1" />
-              <NeonButton size="sm" onClick={importSpotifyPlaylist} isLoading={isImporting}><Upload className="w-4 h-4" /></NeonButton>
+              <Input value={playlistUrl} onChange={e => setPlaylistUrl(e.target.value)} placeholder="https://open.spotify.com/playlist/..." className="bg-black/40 border-white/10 flex-1" data-testid="input-spotify-playlist-url" />
+              <NeonButton size="sm" onClick={importSpotifyPlaylist} isLoading={isImporting} data-testid="button-spotify-import"><Upload className="w-4 h-4" /></NeonButton>
             </div>
+            {savedPlaylistUrl?.value && (
+              <div className="bg-green-950/20 border border-green-500/30 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-green-300 font-medium">Linked Playlist</p>
+                    <p className="text-xs text-muted-foreground truncate" title={savedPlaylistUrl.value}>{savedPlaylistUrl.value}</p>
+                  </div>
+                  <NeonButton size="sm" onClick={syncSpotifyPlaylist} isLoading={isSyncing} className="bg-green-600 hover:bg-green-500 border-green-500/50 shrink-0" data-testid="button-spotify-sync">
+                    Sync Now
+                  </NeonButton>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Click "Sync Now" any time you update the playlist in Spotify — new songs will be added (duplicates skipped).</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -257,16 +303,34 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
 function SongsManager() {
   const { data: songs, isLoading } = useSongs(undefined, false);
   const { mutate: deleteSong } = useDeleteSong();
+  const { mutate: deleteSongs, isPending: isBulkDeleting } = useDeleteSongs();
   const { mutate: toggleSong } = useToggleSong();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const handleDelete = (id: number) => {
     if (confirm("Delete this song?")) {
-      deleteSong(id, { onSuccess: () => toast({ title: "Song deleted" }) });
+      deleteSong(id, {
+        onSuccess: () => {
+          toast({ title: "Song deleted" });
+          setSelected(prev => { const n = new Set(prev); n.delete(id); return n; });
+        },
+        onError: (err: any) => toast({ title: "Delete failed", description: err?.message || "Try again", variant: "destructive" }),
+      });
     }
+  };
+
+  const handleBulkDelete = () => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} song${ids.length > 1 ? "s" : ""}?`)) return;
+    deleteSongs(ids, {
+      onSuccess: (data) => { toast({ title: `Deleted ${data.deleted} songs` }); setSelected(new Set()); },
+      onError: (err: any) => toast({ title: "Bulk delete failed", description: err?.message, variant: "destructive" }),
+    });
   };
 
   const handleToggle = (id: number) => {
@@ -278,21 +342,49 @@ function SongsManager() {
     if (!file) return;
     setIsImporting(true);
     Papa.parse(file, {
-      header: true,
+      header: false,
       skipEmptyLines: true,
       complete: async (results: any) => {
         try {
-          let count = 0;
-          for (const row of results.data as any[]) {
-            if (row.title && row.artist) {
-              await apiRequest("POST", "/api/songs", { title: row.title, artist: row.artist, genre: row.genre || "", spotifyUrl: row.spotifyUrl || row.spotify_url || "" });
-              count++;
+          let rows = (results.data as string[][]).filter(r => r && r.length > 0);
+          // Detect header row (multi-column with title/artist labels)
+          const first = rows[0]?.map(c => String(c || "").toLowerCase().trim()) || [];
+          const hasHeader = first.some(c => c === "title" || c === "song" || c === "artist" || c === "name");
+          if (hasHeader) rows = rows.slice(1);
+
+          const parsed: { title: string; artist: string; genre: string; spotifyUrl: string }[] = [];
+          for (const row of rows) {
+            let title = "", artist = "", genre = "", spotifyUrl = "";
+            // Multi-column format: title, artist, [genre, spotifyUrl]
+            if (row.length >= 2 && String(row[0] || "").trim() && String(row[1] || "").trim()) {
+              title = String(row[0]).trim();
+              artist = String(row[1]).trim();
+              genre = String(row[2] || "").trim();
+              spotifyUrl = String(row[3] || "").trim();
+            } else {
+              // Single-column "Song - Artist" format
+              const cell = String(row[0] || "").trim();
+              const idx = cell.lastIndexOf(" - ");
+              if (idx > 0) { title = cell.slice(0, idx).trim(); artist = cell.slice(idx + 3).trim(); }
+              else { title = cell; }
             }
+            if (title && artist) parsed.push({ title, artist, genre, spotifyUrl });
+          }
+
+          let count = 0, failed = 0;
+          for (const song of parsed) {
+            try {
+              await apiRequest("POST", "/api/songs", song);
+              count++;
+            } catch { failed++; }
           }
           queryClient.invalidateQueries({ queryKey: ["/api/songs"] });
-          toast({ title: "Import Complete", description: `Imported ${count} songs.` });
-        } catch {
-          toast({ title: "Import Failed", variant: "destructive" });
+          toast({
+            title: "Import Complete",
+            description: `Imported ${count} songs${failed ? ` · ${failed} failed` : ""}.`,
+          });
+        } catch (err: any) {
+          toast({ title: "Import Failed", description: err?.message, variant: "destructive" });
         } finally {
           setIsImporting(false);
           if (fileInputRef.current) fileInputRef.current.value = "";
@@ -303,6 +395,16 @@ function SongsManager() {
   };
 
   const filtered = songs?.filter(s => !search || s.title.toLowerCase().includes(search.toLowerCase()) || s.artist.toLowerCase().includes(search.toLowerCase())) || [];
+  const allSelected = filtered.length > 0 && filtered.every(s => selected.has(s.id));
+  const toggleAll = () => {
+    setSelected(prev => {
+      if (allSelected) { const n = new Set(prev); filtered.forEach(s => n.delete(s.id)); return n; }
+      const n = new Set(prev); filtered.forEach(s => n.add(s.id)); return n;
+    });
+  };
+  const toggleOne = (id: number) => {
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
 
   return (
     <div className="space-y-4">
@@ -312,13 +414,19 @@ function SongsManager() {
           <p className="text-sm text-muted-foreground">{songs?.length || 0} songs · {songs?.filter(s => s.isActive).length || 0} visible</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {selected.size > 0 && (
+            <NeonButton variant="outline" size="sm" onClick={handleBulkDelete} isLoading={isBulkDeleting} className="text-red-400 border-red-500/40 hover:bg-red-950/30" data-testid="button-bulk-delete-songs">
+              <Trash2 className="w-4 h-4 mr-1.5" /> Delete {selected.size}
+            </NeonButton>
+          )}
           <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
-          <NeonButton variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} isLoading={isImporting}>
+          <NeonButton variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} isLoading={isImporting} data-testid="button-csv-upload">
             <FileUp className="w-4 h-4 mr-1.5" /> CSV Upload
           </NeonButton>
           <CreateSongDialog />
         </div>
       </div>
+      <p className="text-xs text-muted-foreground -mt-2">CSV formats accepted: <code className="text-white/70">Song - Artist</code> per line, OR columns <code className="text-white/70">title,artist,genre,spotifyUrl</code></p>
       <div className="relative">
         <Input placeholder="Search songs..." value={search} onChange={e => setSearch(e.target.value)} className="bg-white/5 border-white/10 pl-4" />
       </div>
@@ -329,6 +437,9 @@ function SongsManager() {
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-white/5 sticky top-0 backdrop-blur-md">
               <tr>
+                <th className="px-3 py-3 w-8">
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-primary cursor-pointer" data-testid="checkbox-select-all-songs" />
+                </th>
                 <th className="px-4 py-3 w-8"></th>
                 <th className="px-4 py-3">Title</th>
                 <th className="px-4 py-3">Artist</th>
@@ -339,7 +450,10 @@ function SongsManager() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {filtered.map(song => (
-                <tr key={song.id} className={cn("hover:bg-white/5 transition-colors", !song.isActive && "opacity-40")}>
+                <tr key={song.id} className={cn("hover:bg-white/5 transition-colors", !song.isActive && "opacity-40", selected.has(song.id) && "bg-primary/10")}>
+                  <td className="px-3 py-3">
+                    <input type="checkbox" checked={selected.has(song.id)} onChange={() => toggleOne(song.id)} className="w-4 h-4 accent-primary cursor-pointer" data-testid={`checkbox-song-${song.id}`} />
+                  </td>
                   <td className="px-4 py-3">
                     <button onClick={() => handleToggle(song.id)} className={cn("p-1 rounded transition-colors", song.isActive ? "text-primary hover:text-primary/70" : "text-muted-foreground hover:text-white")}>
                       {song.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}

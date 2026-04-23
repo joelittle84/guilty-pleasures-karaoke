@@ -605,10 +605,6 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      {/* Footer */}
-      <div className="fixed bottom-4 right-4 z-0 opacity-40 hover:opacity-100 transition-opacity">
-        <Link href="/band" className="text-xs text-muted-foreground hover:text-white flex items-center gap-1">Musician Login</Link>
-      </div>
     </div>
   );
 }

@@ -54,6 +54,20 @@ export function useDeleteSong() {
   });
 }
 
+// POST /api/songs/bulk-delete
+export function useDeleteSongs() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: number[]) => {
+      const res = await apiRequest("POST", "/api/songs/bulk-delete", { ids });
+      return res.json() as Promise<{ deleted: number }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.songs.list.path] });
+    },
+  });
+}
+
 // PATCH /api/songs/:id/toggle
 export function useToggleSong() {
   const queryClient = useQueryClient();

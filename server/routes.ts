@@ -79,6 +79,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch { res.status(400).json({ message: "Update failed" }); }
   });
 
+  app.post("/api/songs/bulk-delete", isAuthenticated, async (req, res) => {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map((n: any) => Number(n)).filter((n: number) => !isNaN(n)) : [];
+    const deleted = await storage.deleteSongs(ids);
+    res.json({ deleted });
+  });
+
   app.delete(api.songs.delete.path, isAuthenticated, async (req, res) => {
     await storage.deleteSong(Number(req.params.id));
     res.status(204).send();
@@ -89,7 +95,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(song);
   });
 
-  // Spotify playlist import
+  // Spotify playlist import (dedupes by spotifyUrl). Persists URL for future syncs.
   app.post("/api/songs/import-spotify", isAuthenticated, async (req, res) => {
     const { playlistUrl } = req.body;
     if (!playlistUrl) return res.status(400).json({ message: "playlistUrl required" });
@@ -99,7 +105,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!match) return res.status(400).json({ message: "Invalid Spotify playlist URL" });
     const playlistId = match[1];
     try {
-      let offset = 0, total = Infinity, imported = 0;
+      await storage.updateSetting("spotify_playlist_url", playlistUrl);
+      let offset = 0, total = Infinity, imported = 0, skipped = 0;
       while (offset < total) {
         const r = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50&offset=${offset}`, {
           headers: { "Authorization": `Bearer ${token}` }
@@ -110,10 +117,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         for (const item of data.items) {
           if (!item.track) continue;
           const track = item.track;
+          const url = track.external_urls?.spotify || "";
+          if (url) {
+            const existing = await storage.getSongBySpotifyUrl(url);
+            if (existing) { skipped++; continue; }
+          }
           await storage.createSong({
             title: track.name,
             artist: track.artists?.map((a: any) => a.name).join(", ") || "",
-            spotifyUrl: track.external_urls?.spotify || "",
+            spotifyUrl: url,
             genre: null,
             isActive: true,
           });
@@ -122,8 +134,50 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         offset += 50;
         if (offset >= total) break;
       }
-      res.json({ imported });
+      res.json({ imported, skipped });
     } catch { res.status(500).json({ message: "Failed to import from Spotify" }); }
+  });
+
+  // Re-sync from saved playlist URL
+  app.post("/api/songs/sync-spotify", isAuthenticated, async (req, res) => {
+    const saved = await storage.getSetting("spotify_playlist_url");
+    if (!saved) return res.status(400).json({ message: "No playlist URL saved. Import a playlist first." });
+    req.body = { playlistUrl: saved };
+    // Re-route to the import handler
+    const token = await getSpotifyToken();
+    if (!token) return res.status(400).json({ message: "Spotify credentials not configured." });
+    const match = saved.match(/playlist\/([a-zA-Z0-9]+)/);
+    if (!match) return res.status(400).json({ message: "Invalid saved playlist URL" });
+    const playlistId = match[1];
+    try {
+      let offset = 0, total = Infinity, imported = 0, skipped = 0;
+      while (offset < total) {
+        const r = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50&offset=${offset}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const data = await r.json() as any;
+        if (!data.items) break;
+        total = data.total;
+        for (const item of data.items) {
+          if (!item.track) continue;
+          const track = item.track;
+          const url = track.external_urls?.spotify || "";
+          if (url) {
+            const existing = await storage.getSongBySpotifyUrl(url);
+            if (existing) { skipped++; continue; }
+          }
+          await storage.createSong({
+            title: track.name,
+            artist: track.artists?.map((a: any) => a.name).join(", ") || "",
+            spotifyUrl: url, genre: null, isActive: true,
+          });
+          imported++;
+        }
+        offset += 50;
+        if (offset >= total) break;
+      }
+      res.json({ imported, skipped });
+    } catch { res.status(500).json({ message: "Failed to sync from Spotify" }); }
   });
 
   // === Requests ===

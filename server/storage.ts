@@ -18,7 +18,9 @@ export interface IStorage extends IAuthStorage {
   createSong(song: InsertSong): Promise<Song>;
   updateSong(id: number, updates: UpdateSongRequest): Promise<Song>;
   deleteSong(id: number): Promise<void>;
+  deleteSongs(ids: number[]): Promise<number>;
   toggleSongActive(id: number): Promise<Song>;
+  getSongBySpotifyUrl(spotifyUrl: string): Promise<Song | undefined>;
 
   getRequests(status?: string): Promise<RequestWithSongs[]>;
   createRequest(input: CreateRequestInput): Promise<RequestWithSongs>;
@@ -91,7 +93,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSong(id: number): Promise<void> {
+    await db.delete(requestSongs).where(eq(requestSongs.songId, id));
     await db.delete(songs).where(eq(songs.id, id));
+  }
+
+  async deleteSongs(ids: number[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    await db.delete(requestSongs).where(inArray(requestSongs.songId, ids));
+    const result = await db.delete(songs).where(inArray(songs.id, ids)).returning({ id: songs.id });
+    return result.length;
+  }
+
+  async getSongBySpotifyUrl(spotifyUrl: string): Promise<Song | undefined> {
+    if (!spotifyUrl) return undefined;
+    const [s] = await db.select().from(songs).where(eq(songs.spotifyUrl, spotifyUrl));
+    return s;
   }
 
   async toggleSongActive(id: number): Promise<Song> {
