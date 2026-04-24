@@ -30,21 +30,102 @@ import Papa from "papaparse";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 
+// ─── PIN Entry Screen ───────────────────────────────────────────────────────────
+function PinEntry({ onSuccess }: { onSuccess: () => void }) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (value: string) => {
+    if (value.length < 1) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/band-auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ pin: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.message || "Incorrect PIN"); setPin(""); setLoading(false); return; }
+      onSuccess();
+    } catch { setError("Connection error — try again"); setLoading(false); }
+  };
+
+  const handleKey = (k: string) => {
+    if (k === "back") { setPin(p => p.slice(0, -1)); setError(""); return; }
+    const next = pin + k;
+    setPin(next);
+    if (next.length >= 6) submit(next);
+  };
+
+  return (
+    <div className="min-h-screen bg-black/95 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm space-y-8 text-center">
+        <div>
+          <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-purple-800 flex items-center justify-center font-bold text-2xl mx-auto mb-4">B</div>
+          <h1 className="font-display font-bold text-2xl text-white">Band Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Enter your access PIN</p>
+        </div>
+        <div className="flex justify-center gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className={cn("w-10 h-10 rounded-lg border-2 flex items-center justify-center text-lg font-bold transition-all",
+              i < pin.length ? "border-primary bg-primary/20 text-white" : "border-white/20 bg-white/5 text-transparent"
+            )}>●</div>
+          ))}
+        </div>
+        {error && <p className="text-red-400 text-sm animate-pulse">{error}</p>}
+        <div className="grid grid-cols-3 gap-3 max-w-[240px] mx-auto">
+          {["1","2","3","4","5","6","7","8","9","","0","back"].map((k) => (
+            k === "" ? <div key="empty" /> :
+            <button key={k} onClick={() => handleKey(k)} disabled={loading || (k !== "back" && pin.length >= 6)}
+              className={cn("h-14 rounded-xl text-lg font-semibold transition-all active:scale-95",
+                k === "back" ? "bg-white/10 hover:bg-white/20 text-muted-foreground" : "bg-white/10 hover:bg-white/20 text-white hover:border-primary/50 border border-white/10"
+              )}>
+              {k === "back" ? "⌫" : k}
+            </button>
+          ))}
+        </div>
+        {loading && <Loader2 className="w-5 h-5 animate-spin mx-auto text-primary" />}
+      </div>
+    </div>
+  );
+}
+
 export default function BandDashboard() {
-  const { user, isLoading: authLoading, logout } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const [bandAuthed, setBandAuthed] = useState<boolean | null>(null);
+  const [authMethod, setAuthMethod] = useState<"replit" | "pin" | null>(null);
 
+  // Check band auth status (Replit OR PIN session)
   useEffect(() => {
-    if (!authLoading && !user) {
-      window.location.href = "/api/login";
-    }
-  }, [user, authLoading]);
+    fetch("/api/band-auth/status", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { setBandAuthed(d.authed); setAuthMethod(d.method); })
+      .catch(() => setBandAuthed(false));
+  }, []);
 
-  if (authLoading || !user) {
+  const handleLogout = async () => {
+    if (authMethod === "pin") {
+      await fetch("/api/band-auth/logout", { method: "POST", credentials: "include" });
+      setBandAuthed(false);
+      setAuthMethod(null);
+    } else {
+      window.location.href = "/api/logout";
+    }
+  };
+
+  if (bandAuthed === null || authLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  if (!bandAuthed) {
+    return <PinEntry onSuccess={() => { setBandAuthed(true); setAuthMethod("pin"); }} />;
   }
 
   const shareUrl = `${window.location.origin}/`;
@@ -58,8 +139,8 @@ export default function BandDashboard() {
             <h1 className="font-display font-bold text-xl tracking-tight">Band Dashboard</h1>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground hidden sm:inline">{user.firstName || user.email}</span>
-            <NeonButton variant="ghost" size="sm" onClick={() => logout()}>
+            {authMethod === "replit" && user && <span className="text-sm text-muted-foreground hidden sm:inline">{user.firstName || user.email}</span>}
+            <NeonButton variant="ghost" size="sm" onClick={handleLogout} data-testid="button-logout">
               <LogOut className="w-4 h-4" />
             </NeonButton>
           </div>
@@ -103,6 +184,8 @@ export default function BandDashboard() {
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 function SettingsView({ shareUrl }: { shareUrl: string }) {
+  const { user } = useAuth();
+  const isOwner = !!user;
   const { data: guitarMode } = useSettings("guitar_mode");
   const { data: guitarInstructions } = useSettings("guitar_instructions");
   const { data: businessName } = useSettings("business_name");
@@ -119,6 +202,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const [artwork, setArtwork] = useState("");
   const [venmo, setVenmo] = useState("");
   const [zelle, setZelle] = useState("");
+  const [newPin, setNewPin] = useState("");
 
   useEffect(() => { if (guitarInstructions?.value) setInstructions(guitarInstructions.value); }, [guitarInstructions]);
   useEffect(() => { if (businessName?.value) setName(businessName.value); }, [businessName]);
@@ -168,10 +252,37 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
           <div className="p-4 bg-white rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.25)]"><QRCodeSVG value={`${window.location.origin}/band`} size={200} /></div>
           <p className="text-sm text-muted-foreground font-mono" data-testid="text-band-url">{window.location.origin}/band</p>
           <p className="text-xs text-muted-foreground/70 text-center max-w-xs">
-            Scan this from another phone or share with bandmates. Login is required, so it's safe to bookmark — but don't print this on anything fans see.
+            Scan this from another phone or share with bandmates. They'll be prompted for the access PIN — set it below in the PIN section.
           </p>
         </CardContent>
       </Card>
+
+      {isOwner && (
+        <Card className="bg-card border-white/10">
+          <CardHeader><CardTitle className="flex items-center gap-2"><Hash className="w-5 h-5 text-primary" /> Dashboard Access PIN</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">Set a PIN so bandmates can log into this dashboard without a Replit account. Up to 6 digits. Only you (the account owner) can change it.</p>
+            <div className="flex gap-2">
+              <Input
+                value={newPin}
+                onChange={e => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="Enter new PIN (up to 6 digits)"
+                className="bg-black/40 border-white/10 font-mono text-lg tracking-widest"
+                maxLength={6}
+                inputMode="numeric"
+                data-testid="input-dashboard-pin"
+              />
+              <NeonButton size="sm" onClick={() => {
+                if (!newPin) return;
+                updateSetting({ key: "dashboard_pin", value: newPin }, {
+                  onSuccess: () => { toast({ title: "PIN saved", description: `Dashboard PIN is now ${newPin}` }); setNewPin(""); }
+                });
+              }} disabled={!newPin}>Save PIN</NeonButton>
+            </div>
+            <p className="text-xs text-muted-foreground">Share this PIN with your band — they go to <code className="text-white/70">/band</code> and enter it to access the dashboard.</p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="bg-card border-white/10">
         <CardHeader><CardTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5 text-primary" /> Project & Branding</CardTitle></CardHeader>

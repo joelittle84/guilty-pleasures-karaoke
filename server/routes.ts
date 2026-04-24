@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
@@ -7,6 +7,12 @@ import { encrypt, decrypt } from "./crypto";
 import { z } from "zod";
 
 const ENCRYPTED_KEYS = ["venmo_handle", "zelle_handle", "spotify_client_id", "spotify_client_secret"];
+
+// Auth middleware: Replit Auth OR valid PIN session
+const isBandAuthed: RequestHandler = (req, res, next) => {
+  if ((req as any).isAuthenticated?.() || (req.session as any).bandAuthed) return next();
+  res.status(401).json({ message: "Unauthorized" });
+};
 
 async function getSpotifyToken(): Promise<string | null> {
   try {
@@ -51,6 +57,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   await setupAuth(app);
   registerAuthRoutes(app);
 
+  // === Band PIN Auth ===
+  app.get("/api/band-auth/status", (req, res) => {
+    const replitAuthed = (req as any).isAuthenticated?.() && !!(req.user as any)?.expires_at;
+    const pinAuthed = !!(req.session as any).bandAuthed;
+    res.json({ authed: replitAuthed || pinAuthed, method: replitAuthed ? "replit" : pinAuthed ? "pin" : null });
+  });
+
+  app.post("/api/band-auth/login", async (req, res) => {
+    const { pin } = req.body as { pin: string };
+    if (!pin) return res.status(400).json({ message: "PIN required" });
+    const stored = await storage.getSetting("dashboard_pin");
+    if (!stored) return res.status(403).json({ message: "No PIN configured — ask the band owner to set one in Settings" });
+    if (pin !== stored) return res.status(401).json({ message: "Incorrect PIN" });
+    (req.session as any).bandAuthed = true;
+    req.session.save(() => res.json({ ok: true }));
+  });
+
+  app.post("/api/band-auth/logout", (req, res) => {
+    (req.session as any).bandAuthed = false;
+    req.session.save(() => res.json({ ok: true }));
+  });
+
   // === Spotify Diagnostics ===
   app.get("/api/spotify-test", isAuthenticated, async (req, res) => {
     try {
@@ -83,7 +111,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // CSV import with smart upsert: creates new songs, updates spotifyUrl on existing ones
-  app.post("/api/songs/csv-import", isAuthenticated, async (req, res) => {
+  app.post("/api/songs/csv-import", isBandAuthed, async (req, res) => {
     const { songs: incoming } = req.body as { songs: { title: string; artist: string; genre?: string; spotifyUrl?: string }[] };
     if (!Array.isArray(incoming)) return res.status(400).json({ message: "Invalid payload" });
     let created = 0, updated = 0, skipped = 0;
@@ -105,7 +133,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ created, updated, skipped });
   });
 
-  app.post(api.songs.create.path, isAuthenticated, async (req, res) => {
+  app.post(api.songs.create.path, isBandAuthed, async (req, res) => {
     try {
       const input = api.songs.create.input.parse(req.body);
       const song = await storage.createSong(input);
@@ -116,7 +144,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.patch(api.songs.update.path, isAuthenticated, async (req, res) => {
+  app.patch(api.songs.update.path, isBandAuthed, async (req, res) => {
     try {
       const id = Number(req.params.id);
       const input = api.songs.update.input.parse(req.body);
@@ -125,24 +153,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch { res.status(400).json({ message: "Update failed" }); }
   });
 
-  app.post("/api/songs/bulk-delete", isAuthenticated, async (req, res) => {
+  app.post("/api/songs/bulk-delete", isBandAuthed, async (req, res) => {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.map((n: any) => Number(n)).filter((n: number) => !isNaN(n)) : [];
     const deleted = await storage.deleteSongs(ids);
     res.json({ deleted });
   });
 
-  app.delete(api.songs.delete.path, isAuthenticated, async (req, res) => {
+  app.delete(api.songs.delete.path, isBandAuthed, async (req, res) => {
     await storage.deleteSong(Number(req.params.id));
     res.status(204).send();
   });
 
-  app.patch("/api/songs/:id/toggle", isAuthenticated, async (req, res) => {
+  app.patch("/api/songs/:id/toggle", isBandAuthed, async (req, res) => {
     const song = await storage.toggleSongActive(Number(req.params.id));
     res.json(song);
   });
 
   // Spotify playlist import (dedupes by spotifyUrl). Persists URL for future syncs.
-  app.post("/api/songs/import-spotify", isAuthenticated, async (req, res) => {
+  app.post("/api/songs/import-spotify", isBandAuthed, async (req, res) => {
     const { playlistUrl } = req.body;
     if (!playlistUrl) return res.status(400).json({ message: "playlistUrl required" });
     const token = await getSpotifyToken();
@@ -191,7 +219,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Re-sync from saved playlist URL
-  app.post("/api/songs/sync-spotify", isAuthenticated, async (req, res) => {
+  app.post("/api/songs/sync-spotify", isBandAuthed, async (req, res) => {
     const saved = await storage.getSetting("spotify_playlist_url");
     if (!saved) return res.status(400).json({ message: "No playlist URL saved. Import a playlist first." });
     req.body = { playlistUrl: saved };
@@ -254,19 +282,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.get(api.requests.list.path, isAuthenticated, async (req, res) => {
+  app.get(api.requests.list.path, isBandAuthed, async (req, res) => {
     const status = req.query.status as string | undefined;
     const requests = await storage.getRequests(status);
     res.json(requests);
   });
 
-  app.patch(api.requests.updateStatus.path, isAuthenticated, async (req, res) => {
+  app.patch(api.requests.updateStatus.path, isBandAuthed, async (req, res) => {
     const id = Number(req.params.id);
     const request = await storage.updateRequestStatus(id, req.body.status);
     res.json(request);
   });
 
-  app.delete(api.requests.delete.path, isAuthenticated, async (req, res) => {
+  app.delete(api.requests.delete.path, isBandAuthed, async (req, res) => {
     await storage.deleteRequest(Number(req.params.id));
     res.status(204).send();
   });
@@ -285,8 +313,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ value });
   });
 
-  app.patch(api.settings.update.path, isAuthenticated, async (req, res) => {
+  app.patch(api.settings.update.path, isBandAuthed, async (req, res) => {
     const key = String(req.params.key);
+    // Only the Replit account owner can set/change the dashboard PIN
+    if (key === "dashboard_pin" && !(req as any).isAuthenticated?.()) {
+      return res.status(403).json({ message: "Only the account owner can change the PIN" });
+    }
     let value = req.body.value;
     if (ENCRYPTED_KEYS.includes(key) && value) value = encrypt(value);
     const saved = await storage.updateSetting(key, value);
@@ -315,17 +347,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.patch(api.guestMusicians.updateStatus.path, isAuthenticated, async (req, res) => {
+  app.patch(api.guestMusicians.updateStatus.path, isBandAuthed, async (req, res) => {
     const guest = await storage.updateGuestMusicianStatus(Number(req.params.id), req.body.status);
     res.json(guest);
   });
 
-  app.delete("/api/guest-musicians/completed/all", isAuthenticated, async (req, res) => {
+  app.delete("/api/guest-musicians/completed/all", isBandAuthed, async (req, res) => {
     await storage.clearCompletedGuests();
     res.status(204).send();
   });
 
-  app.delete("/api/guest-musicians/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/guest-musicians/:id", isBandAuthed, async (req, res) => {
     await storage.deleteGuestMusician(Number(req.params.id));
     res.status(204).send();
   });
@@ -347,7 +379,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.submitTriviaAnswer(Number(sessionId), playerName, Number(answerIndex)));
   });
 
-  app.post("/api/trivia/sessions", isAuthenticated, async (req, res) => {
+  app.post("/api/trivia/sessions", isBandAuthed, async (req, res) => {
     const { songTitle, songArtist, questionCount = 4, questionDurationSeconds = 25 } = req.body;
     if (!songTitle || !songArtist) return res.status(400).json({ message: "songTitle and songArtist required" });
     const questions = await fetchTriviaQuestions(Math.min(5, Math.max(3, Number(questionCount))));
@@ -355,19 +387,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.status(201).json(session);
   });
 
-  app.patch("/api/trivia/sessions/:id/status", isAuthenticated, async (req, res) => {
+  app.patch("/api/trivia/sessions/:id/status", isBandAuthed, async (req, res) => {
     res.json(await storage.updateTriviaSessionStatus(Number(req.params.id), req.body.status));
   });
 
-  app.post("/api/trivia/sessions/:id/next", isAuthenticated, async (req, res) => {
+  app.post("/api/trivia/sessions/:id/next", isBandAuthed, async (req, res) => {
     res.json(await storage.advanceTriviaQuestion(Number(req.params.id)));
   });
 
-  app.get("/api/trivia/sessions/:id/leaderboard", isAuthenticated, async (req, res) => {
+  app.get("/api/trivia/sessions/:id/leaderboard", isBandAuthed, async (req, res) => {
     res.json(await storage.getTriviaLeaderboard(Number(req.params.id)));
   });
 
-  app.delete("/api/trivia/sessions", isAuthenticated, async (req, res) => {
+  app.delete("/api/trivia/sessions", isBandAuthed, async (req, res) => {
     await storage.deleteAllTriviaSessions();
     res.status(204).send();
   });
@@ -418,18 +450,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Protected: list pre-signups
-  app.get("/api/presignup", isAuthenticated, async (req, res) => {
+  app.get("/api/presignup", isBandAuthed, async (req, res) => {
     res.json(await storage.getPreSignups());
   });
 
   // Protected: delete one
-  app.delete("/api/presignup/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/presignup/:id", isBandAuthed, async (req, res) => {
     await storage.deletePreSignup(Number(req.params.id));
     res.status(204).send();
   });
 
   // Protected: clear all
-  app.delete("/api/presignup", isAuthenticated, async (req, res) => {
+  app.delete("/api/presignup", isBandAuthed, async (req, res) => {
     await storage.clearPreSignups();
     res.status(204).send();
   });
