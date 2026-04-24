@@ -20,6 +20,7 @@ export const requests = pgTable("requests", {
   id: serial("id").primaryKey(),
   participantName: text("participant_name").notNull(),
   status: text("status", { enum: ["pending", "approved", "completed", "rejected"] }).default("pending").notNull(),
+  isPresignup: boolean("is_presignup").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -104,6 +105,7 @@ export const insertPreSignupSchema = createInsertSchema(preSignups).omit({ id: t
 export const createRequestSchema = z.object({
   participantName: z.string().min(1, "Name is required"),
   songIds: z.array(z.number()).min(1, "At least one song must be selected").max(3, "Maximum 3 songs allowed"),
+  isPresignup: z.boolean().optional().default(false),
 });
 
 // === TRIVIA TYPES ===

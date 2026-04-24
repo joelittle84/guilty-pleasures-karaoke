@@ -11,7 +11,7 @@ import { NeonButton } from "@/components/NeonButton";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Guitar, QrCode, DollarSign, Clock, Trophy, Sparkles, Users, CalendarCheck } from "lucide-react";
+import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Check, Guitar, QrCode, DollarSign, Clock, Trophy, Sparkles, Users, CalendarCheck } from "lucide-react";
 import { Song, TriviaSessionPublic } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
@@ -47,8 +47,11 @@ export default function Home() {
   const [preSignupEmail, setPreSignupEmail] = useState("");
   const [preSignupPhone, setPreSignupPhone] = useState("");
   const [preSignupDone, setPreSignupDone] = useState(false);
+  const [preSignupSongs, setPreSignupSongs] = useState<Song[]>([]);
+  const [preSignupSearch, setPreSignupSearch] = useState("");
 
   const { data: songs, isLoading } = useSongs(search);
+  const { data: allSongs } = useSongs("");
   const { mutate: submitRequest, isPending: isSubmitting } = useCreateRequest();
   const { data: guitarMode } = useSettings("guitar_mode");
   const { data: guitarInstructions } = useSettings("guitar_instructions");
@@ -167,9 +170,20 @@ export default function Home() {
       toast({ title: "Name Required", variant: "destructive" });
       return;
     }
-    createPreSignup({ name: preSignupName, email: preSignupEmail || undefined, phone: preSignupPhone || undefined }, {
+    const payload: any = { name: preSignupName, email: preSignupEmail || undefined, phone: preSignupPhone || undefined };
+    if (preSignupSongs.length > 0) payload.songIds = preSignupSongs.map(s => s.id);
+    createPreSignup(payload, {
       onSuccess: () => setPreSignupDone(true),
       onError: (err: any) => toast({ title: "Registration Failed", description: err.message, variant: "destructive" })
+    });
+  };
+
+  const togglePreSignupSong = (song: Song) => {
+    setPreSignupSongs(prev => {
+      const already = prev.find(s => s.id === song.id);
+      if (already) return prev.filter(s => s.id !== song.id);
+      if (prev.length >= 3) { toast({ title: "Max 3 songs", variant: "destructive" }); return prev; }
+      return [...prev, song];
     });
   };
 
@@ -298,8 +312,8 @@ export default function Home() {
       </AnimatePresence>
 
       {/* Pre-Signup Dialog */}
-      <Dialog open={showPreSignup} onOpenChange={(open) => { setShowPreSignup(open); if (!open) { setPreSignupDone(false); setPreSignupName(""); setPreSignupEmail(""); setPreSignupPhone(""); } }}>
-        <DialogContent className="bg-card border-white/10 sm:max-w-sm">
+      <Dialog open={showPreSignup} onOpenChange={(open) => { setShowPreSignup(open); if (!open) { setPreSignupDone(false); setPreSignupName(""); setPreSignupEmail(""); setPreSignupPhone(""); setPreSignupSongs([]); setPreSignupSearch(""); } }}>
+        <DialogContent className="bg-card border-white/10 sm:max-w-md max-h-[90vh] overflow-y-auto">
           {preSignupDone ? (
             <>
               <div className="mx-auto w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center mb-4 text-blue-400 mt-4">
@@ -334,6 +348,38 @@ export default function Home() {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-muted-foreground">Phone <span className="text-xs">(optional)</span></label>
                   <Input type="tel" value={preSignupPhone} onChange={e => setPreSignupPhone(e.target.value)} placeholder="(555) 000-0000" className="bg-black/40 border-white/10" />
+                </div>
+
+                {/* Song selection */}
+                <div className="space-y-2 pt-1">
+                  <label className="text-sm font-medium">Pick Songs <span className="text-xs text-muted-foreground">(optional, up to 3)</span></label>
+                  {preSignupSongs.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {preSignupSongs.map(s => (
+                        <span key={s.id} className="flex items-center gap-1 bg-blue-500/20 text-blue-200 text-xs px-2 py-1 rounded-full border border-blue-500/30">
+                          {s.title}
+                          <button onClick={() => togglePreSignupSong(s)} className="ml-0.5 hover:text-red-400"><X className="w-3 h-3" /></button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <Input value={preSignupSearch} onChange={e => setPreSignupSearch(e.target.value)} placeholder="Search songs..." className="bg-black/40 border-white/10 text-sm" />
+                  {preSignupSearch.trim() && (
+                    <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg border border-white/10 bg-black/30 p-1">
+                      {(allSongs || []).filter(s => s.title.toLowerCase().includes(preSignupSearch.toLowerCase()) || s.artist.toLowerCase().includes(preSignupSearch.toLowerCase())).slice(0, 20).map(s => {
+                        const picked = !!preSignupSongs.find(ps => ps.id === s.id);
+                        return (
+                          <button key={s.id} onClick={() => togglePreSignupSong(s)} className={cn("w-full text-left px-2 py-1.5 rounded text-xs transition-colors flex items-center justify-between gap-2", picked ? "bg-blue-600/30 text-blue-200" : "hover:bg-white/10")}>
+                            <span><span className="font-medium">{s.title}</span> <span className="text-muted-foreground">— {s.artist}</span></span>
+                            {picked && <Check className="w-3 h-3 text-blue-400 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                      {(allSongs || []).filter(s => s.title.toLowerCase().includes(preSignupSearch.toLowerCase()) || s.artist.toLowerCase().includes(preSignupSearch.toLowerCase())).length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-2">No songs found</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               <DialogFooter>

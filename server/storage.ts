@@ -146,7 +146,7 @@ export class DatabaseStorage implements IStorage {
 
   async createRequest(input: CreateRequestInput): Promise<RequestWithSongs> {
     return await db.transaction(async (tx) => {
-      const [newRequest] = await tx.insert(requests).values({ participantName: input.participantName, status: "pending" }).returning();
+      const [newRequest] = await tx.insert(requests).values({ participantName: input.participantName, status: "pending", isPresignup: input.isPresignup ?? false }).returning();
       let order = 1;
       for (const songId of input.songIds) {
         await tx.insert(requestSongs).values({ requestId: newRequest.id, songId, preferenceOrder: order++ });

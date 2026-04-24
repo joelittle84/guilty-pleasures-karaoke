@@ -635,7 +635,7 @@ function GuestMusicianManager() {
                         <Badge variant={guest.status === 'approved' ? 'default' : guest.status === 'completed' ? 'outline' : 'secondary'} className="text-xs">
                           {guest.status.toUpperCase()}
                         </Badge>
-                        {guest.status === "completed" && (
+                        {(guest.status === "completed" || guest.status === "rejected") && (
                           <button onClick={() => handleDismiss(guest.id)} className="text-muted-foreground hover:text-red-400 transition-colors"><X className="w-4 h-4" /></button>
                         )}
                       </div>
@@ -859,9 +859,14 @@ function QueueView() {
                     <Clock className="w-3 h-3" />{format(new Date(req.createdAt), 'h:mm a')}
                   </div>
                 </div>
-                <Badge variant={req.status === 'approved' ? 'default' : 'secondary'} className="bg-primary/20 text-primary border-primary/20">
-                  {req.status.toUpperCase()}
-                </Badge>
+                <div className="flex flex-col items-end gap-1">
+                  {req.isPresignup && (
+                    <Badge variant="outline" className="text-xs border-blue-500/40 bg-blue-500/10 text-blue-300 font-semibold">PRE-SIGNUP</Badge>
+                  )}
+                  <Badge variant={req.status === 'approved' ? 'default' : 'secondary'} className="bg-primary/20 text-primary border-primary/20">
+                    {req.status.toUpperCase()}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="pt-4 space-y-4">

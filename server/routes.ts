@@ -426,7 +426,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Public: create pre-signup
   app.post("/api/presignup", async (req, res) => {
-    const { name, email, phone, notes } = req.body;
+    const { name, email, phone, notes, songIds } = req.body;
     if (!name?.trim()) return res.status(400).json({ message: "Name is required" });
 
     // Verify window is still open
@@ -446,6 +446,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     const signup = await storage.createPreSignup({ name: name.trim(), email: email?.trim() || null, phone: phone?.trim() || null, notes: notes?.trim() || null });
+
+    // If song selections provided, also add to the live queue
+    if (Array.isArray(songIds) && songIds.length > 0) {
+      const validSongIds = songIds.slice(0, 3).filter((id: any) => typeof id === "number");
+      if (validSongIds.length > 0) {
+        await storage.createRequest({ participantName: name.trim(), songIds: validSongIds, isPresignup: true });
+      }
+    }
+
     res.status(201).json(signup);
   });
 
