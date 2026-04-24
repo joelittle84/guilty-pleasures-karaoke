@@ -109,7 +109,6 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const { data: businessInfo } = useSettings("business_info");
   const { data: logoUrl } = useSettings("logo_url");
   const { data: artworkUrl } = useSettings("hero_artwork_url");
-  const { data: savedPlaylistUrl } = useSettings("spotify_playlist_url");
   const { mutate: updateSetting, isPending: isSaving } = useUpdateSetting();
   const { toast } = useToast();
 
@@ -120,11 +119,6 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const [artwork, setArtwork] = useState("");
   const [venmo, setVenmo] = useState("");
   const [zelle, setZelle] = useState("");
-  const [spotifyClientId, setSpotifyClientId] = useState("");
-  const [spotifyClientSecret, setSpotifyClientSecret] = useState("");
-  const [playlistUrl, setPlaylistUrl] = useState("");
-  const [isImporting, setIsImporting] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => { if (guitarInstructions?.value) setInstructions(guitarInstructions.value); }, [guitarInstructions]);
   useEffect(() => { if (businessName?.value) setName(businessName.value); }, [businessName]);
@@ -153,46 +147,6 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
     if (zelle) updateSetting({ key: "zelle_handle", value: zelle }, {
       onSuccess: () => toast({ title: "Tip info saved & encrypted" })
     });
-  };
-
-  const saveSpotify = () => {
-    if (spotifyClientId) updateSetting({ key: "spotify_client_id", value: spotifyClientId });
-    if (spotifyClientSecret) updateSetting({ key: "spotify_client_secret", value: spotifyClientSecret }, {
-      onSuccess: () => toast({ title: "Spotify credentials saved & encrypted" })
-    });
-  };
-
-  const importSpotifyPlaylist = async () => {
-    if (!playlistUrl.trim()) return;
-    setIsImporting(true);
-    try {
-      const res = await apiRequest("POST", "/api/songs/import-spotify", { playlistUrl });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Import failed");
-      queryClient.invalidateQueries({ queryKey: ["/api/songs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/settings/spotify_playlist_url"] });
-      toast({ title: "Spotify Import Complete", description: `Imported ${data.imported} new songs${data.skipped ? ` · ${data.skipped} duplicates skipped` : ""}.` });
-      setPlaylistUrl("");
-    } catch (err: any) {
-      toast({ title: "Import Failed", description: err.message, variant: "destructive" });
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const syncSpotifyPlaylist = async () => {
-    setIsSyncing(true);
-    try {
-      const res = await apiRequest("POST", "/api/songs/sync-spotify", {});
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Sync failed");
-      queryClient.invalidateQueries({ queryKey: ["/api/songs"] });
-      toast({ title: "Playlist Synced", description: `Added ${data.imported} new songs · ${data.skipped} already in catalog.` });
-    } catch (err: any) {
-      toast({ title: "Sync Failed", description: err.message, variant: "destructive" });
-    } finally {
-      setIsSyncing(false);
-    }
   };
 
   return (
@@ -261,38 +215,23 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <svg viewBox="0 0 24 24" className="w-5 h-5 fill-green-400" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-            Spotify Integration
+            Spotify Import via Exportify
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-muted-foreground space-y-1">
-            <p className="font-medium text-white">Setup Required</p>
-            <p>Create a Spotify app at <span className="text-primary">developer.spotify.com</span>, then enter your Client ID and Secret below. Credentials are stored encrypted.</p>
+        <CardContent className="space-y-4">
+          <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-4 text-sm space-y-1">
+            <p className="font-medium text-amber-300">Spotify Changed Their API in 2024</p>
+            <p className="text-muted-foreground">Direct playlist sync no longer works without user-level login. Use the free Exportify tool instead — it exports your playlist to a CSV file that imports perfectly here.</p>
           </div>
-          <div className="space-y-2"><label className="text-sm font-medium">Client ID</label><Input value={spotifyClientId} onChange={e => setSpotifyClientId(e.target.value)} placeholder="Your Spotify Client ID" className="bg-black/40 border-white/10 font-mono text-sm" /></div>
-          <div className="space-y-2"><label className="text-sm font-medium">Client Secret</label><Input type="password" value={spotifyClientSecret} onChange={e => setSpotifyClientSecret(e.target.value)} placeholder="Your Spotify Client Secret" className="bg-black/40 border-white/10 font-mono text-sm" /></div>
-          <NeonButton onClick={saveSpotify} size="sm" className="bg-green-600 hover:bg-green-500 border-green-500/50">Save Spotify Credentials</NeonButton>
-          <div className="pt-2 border-t border-white/10 space-y-3">
-            <label className="text-sm font-medium">Import from Playlist URL</label>
-            <div className="flex gap-2">
-              <Input value={playlistUrl} onChange={e => setPlaylistUrl(e.target.value)} placeholder="https://open.spotify.com/playlist/..." className="bg-black/40 border-white/10 flex-1" data-testid="input-spotify-playlist-url" />
-              <NeonButton size="sm" onClick={importSpotifyPlaylist} isLoading={isImporting} data-testid="button-spotify-import"><Upload className="w-4 h-4" /></NeonButton>
-            </div>
-            {savedPlaylistUrl?.value && (
-              <div className="bg-green-950/20 border border-green-500/30 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-green-300 font-medium">Linked Playlist</p>
-                    <p className="text-xs text-muted-foreground truncate" title={savedPlaylistUrl.value}>{savedPlaylistUrl.value}</p>
-                  </div>
-                  <NeonButton size="sm" onClick={syncSpotifyPlaylist} isLoading={isSyncing} className="bg-green-600 hover:bg-green-500 border-green-500/50 shrink-0" data-testid="button-spotify-sync">
-                    Sync Now
-                  </NeonButton>
-                </div>
-                <p className="text-[11px] text-muted-foreground">Click "Sync Now" any time you update the playlist in Spotify — new songs will be added (duplicates skipped).</p>
-              </div>
-            )}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-sm space-y-3">
+            <p className="font-medium text-white">How to import your Spotify playlist:</p>
+            <ol className="space-y-2 text-muted-foreground list-none">
+              <li className="flex gap-2"><span className="text-primary font-bold shrink-0">1.</span><span>Go to <a href="https://exportify.net" target="_blank" rel="noopener noreferrer" className="text-green-400 underline underline-offset-2 hover:text-green-300">exportify.net</a> and log in with your Spotify account</span></li>
+              <li className="flex gap-2"><span className="text-primary font-bold shrink-0">2.</span><span>Find your playlist and click <strong className="text-white">Export</strong> to download the CSV</span></li>
+              <li className="flex gap-2"><span className="text-primary font-bold shrink-0">3.</span><span>Go to the <strong className="text-white">Songs tab</strong> and click <strong className="text-white">CSV Upload</strong> — Exportify files are detected automatically</span></li>
+            </ol>
           </div>
+          <p className="text-[11px] text-muted-foreground">Song titles, artists, and Spotify preview links are all imported automatically from the Exportify CSV.</p>
         </CardContent>
       </Card>
     </div>
@@ -347,28 +286,48 @@ function SongsManager() {
       complete: async (results: any) => {
         try {
           let rows = (results.data as string[][]).filter(r => r && r.length > 0);
-          // Detect header row (multi-column with title/artist labels)
           const first = rows[0]?.map(c => String(c || "").toLowerCase().trim()) || [];
-          const hasHeader = first.some(c => c === "title" || c === "song" || c === "artist" || c === "name");
-          if (hasHeader) rows = rows.slice(1);
+
+          // Detect Exportify format (has "track name" and "artist name(s)" or "spotify id" headers)
+          const isExportify = first.some(c => c === "track name") && first.some(c => c.includes("artist name"));
+          // Detect standard header row
+          const hasStandardHeader = !isExportify && first.some(c => c === "title" || c === "song" || c === "artist" || c === "name");
 
           const parsed: { title: string; artist: string; genre: string; spotifyUrl: string }[] = [];
-          for (const row of rows) {
-            let title = "", artist = "", genre = "", spotifyUrl = "";
-            // Multi-column format: title, artist, [genre, spotifyUrl]
-            if (row.length >= 2 && String(row[0] || "").trim() && String(row[1] || "").trim()) {
-              title = String(row[0]).trim();
-              artist = String(row[1]).trim();
-              genre = String(row[2] || "").trim();
-              spotifyUrl = String(row[3] || "").trim();
-            } else {
-              // Single-column "Song - Artist" format
-              const cell = String(row[0] || "").trim();
-              const idx = cell.lastIndexOf(" - ");
-              if (idx > 0) { title = cell.slice(0, idx).trim(); artist = cell.slice(idx + 3).trim(); }
-              else { title = cell; }
+
+          if (isExportify) {
+            // Exportify format: Spotify ID, Artist Name(s), Track Name, Album Name, ..., Genres, ...
+            const idxTrack = first.findIndex(c => c === "track name");
+            const idxArtist = first.findIndex(c => c.includes("artist name"));
+            const idxGenre = first.findIndex(c => c === "genres");
+            const idxSpotifyId = first.findIndex(c => c === "spotify id");
+            for (const row of rows.slice(1)) {
+              const title = String(row[idxTrack] || "").trim();
+              const artist = String(row[idxArtist] || "").trim();
+              const genre = idxGenre >= 0 ? String(row[idxGenre] || "").trim() : "";
+              const spotifyId = idxSpotifyId >= 0 ? String(row[idxSpotifyId] || "").trim() : "";
+              const spotifyUrl = spotifyId ? `https://open.spotify.com/track/${spotifyId}` : "";
+              if (title && artist) parsed.push({ title, artist, genre, spotifyUrl });
             }
-            if (title && artist) parsed.push({ title, artist, genre, spotifyUrl });
+          } else {
+            if (hasStandardHeader) rows = rows.slice(1);
+            for (const row of rows) {
+              let title = "", artist = "", genre = "", spotifyUrl = "";
+              // Multi-column format: title, artist, [genre, spotifyUrl]
+              if (row.length >= 2 && String(row[0] || "").trim() && String(row[1] || "").trim()) {
+                title = String(row[0]).trim();
+                artist = String(row[1]).trim();
+                genre = String(row[2] || "").trim();
+                spotifyUrl = String(row[3] || "").trim();
+              } else {
+                // Single-column "Song - Artist" format
+                const cell = String(row[0] || "").trim();
+                const idx = cell.lastIndexOf(" - ");
+                if (idx > 0) { title = cell.slice(0, idx).trim(); artist = cell.slice(idx + 3).trim(); }
+                else { title = cell; }
+              }
+              if (title && artist) parsed.push({ title, artist, genre, spotifyUrl });
+            }
           }
 
           let count = 0, failed = 0;
@@ -426,7 +385,7 @@ function SongsManager() {
           <CreateSongDialog />
         </div>
       </div>
-      <p className="text-xs text-muted-foreground -mt-2">CSV formats accepted: <code className="text-white/70">Song - Artist</code> per line, OR columns <code className="text-white/70">title,artist,genre,spotifyUrl</code></p>
+      <p className="text-xs text-muted-foreground -mt-2">CSV formats accepted: <code className="text-white/70">Song - Artist</code> per line · <code className="text-white/70">title,artist,genre,spotifyUrl</code> columns · or <strong className="text-green-400">Exportify</strong> exports (auto-detected)</p>
       <div className="relative">
         <Input placeholder="Search songs..." value={search} onChange={e => setSearch(e.target.value)} className="bg-white/5 border-white/10 pl-4" />
       </div>

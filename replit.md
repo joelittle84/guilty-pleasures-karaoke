@@ -74,9 +74,10 @@ Preferred communication style: Simple, everyday language.
 - Encryption key derived from SESSION_SECRET env var
 
 ### Spotify Integration
-- Enter Client ID + Secret in Settings (stored encrypted)
-- Import entire playlist by URL - fetches all tracks via client credentials flow
-- Also supports CSV batch upload (columns: title, artist, genre, spotifyUrl)
+- Direct playlist sync removed: Spotify's 2024 API policy change requires user-level OAuth for playlist access (client credentials no longer work, even for public playlists)
+- **Workaround**: Use Exportify (exportify.net) to export playlist → CSV, then import via CSV Upload in Songs tab
+- CSV parser auto-detects Exportify format (Track Name, Artist Name(s), Spotify ID columns) and maps them automatically, including building Spotify preview URLs
+- Also supports: `Song - Artist` per line, or columns `title,artist,genre,spotifyUrl`
 
 ### Trivia System
 - Questions fetched from Open Trivia Database (music category, 4 questions)

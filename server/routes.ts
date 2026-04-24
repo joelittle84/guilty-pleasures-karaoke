@@ -65,7 +65,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         headers: { "Authorization": `Bearer ${token}` }
       });
       const data = await r.json() as any;
-      res.json({ ok: r.ok, status: r.status, playlistId, total: data.total, hasItems: !!data.items, itemCount: data.items?.length, error: data.error, firstTrack: data.items?.[0]?.track?.name });
+      // Also test against a known public Spotify playlist
+      const rTest = await fetch("https://api.spotify.com/v1/playlists/37i9dQZF1DXcBWIGoYBM5M/tracks?limit=1", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const testData = await rTest.json() as any;
+      res.json({ userPlaylist: { ok: r.ok, status: r.status, playlistId, total: data.total, hasItems: !!data.items, error: data.error, firstTrack: data.items?.[0]?.track?.name }, spotifyOfficialPlaylist: { ok: rTest.ok, status: rTest.status, total: testData.total, firstTrack: testData.items?.[0]?.track?.name, error: testData.error } });
     } catch (err: any) { res.json({ ok: false, error: err.message }); }
   });
 
