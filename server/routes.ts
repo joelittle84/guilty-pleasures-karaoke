@@ -110,6 +110,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(songs);
   });
 
+  // Strip Spotify version suffixes from song titles (e.g. "- 2013 Remaster", "- Remastered", "- Live at...")
+  function cleanSongTitle(title: string): string {
+    return title.replace(/\s*-+\s*(\d{4}\s*[-\s]*)?(Remaster(ed)?|Live|Radio\s+Edit|Single\s+Version|Album\s+Version|Acoustic|Bonus|Demo|Extended|Deluxe|Anniversary|Mono|Stereo|Edit|Version|Mix)\b.*/gi, '').trim();
+  }
+
   // CSV import with smart upsert: creates new songs, updates spotifyUrl on existing ones
   app.post("/api/songs/csv-import", isBandAuthed, async (req, res) => {
     const { songs: incoming } = req.body as { songs: { title: string; artist: string; genre?: string; spotifyUrl?: string }[] };
@@ -117,6 +122,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     let created = 0, updated = 0, skipped = 0;
     for (const s of incoming) {
       if (!s.title || !s.artist) continue;
+      s.title = cleanSongTitle(s.title);
       const existing = await storage.getSongByTitleArtist(s.title, s.artist);
       if (existing) {
         if (s.spotifyUrl && !existing.spotifyUrl) {
