@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useRequests, useUpdateRequestStatus } from "@/hooks/use-requests";
-import { useSongs, useDeleteSong, useToggleSong } from "@/hooks/use-songs";
+import { useSongs, useDeleteSong, useDeleteSongs, useToggleSong } from "@/hooks/use-songs";
 import { useSettings, useUpdateSetting } from "@/hooks/use-settings";
 import { useGuestMusicians, useUpdateGuestStatus, useDeleteGuest, useClearCompletedGuests } from "@/hooks/use-guest-musicians";
 import { useActiveTrivia, useCreateTriviaSession, useUpdateTriviaStatus, useAdvanceTriviaQuestion, useDeleteAllTrivia } from "@/hooks/use-trivia";
