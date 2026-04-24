@@ -88,6 +88,9 @@ function PinEntry({ onSuccess }: { onSuccess: () => void }) {
           ))}
         </div>
         {loading && <Loader2 className="w-5 h-5 animate-spin mx-auto text-primary" />}
+        <a href="/api/login" className="text-xs text-muted-foreground hover:text-white underline underline-offset-4 transition-colors">
+          Band owner? Sign in with Replit instead
+        </a>
       </div>
     </div>
   );
