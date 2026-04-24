@@ -51,6 +51,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   await setupAuth(app);
   registerAuthRoutes(app);
 
+  // === Spotify Diagnostics ===
+  app.get("/api/spotify-test", isAuthenticated, async (req, res) => {
+    try {
+      const token = await getSpotifyToken();
+      if (!token) return res.json({ ok: false, step: "token", error: "Could not get token — check Client ID and Secret in Settings" });
+      const playlistUrl = await storage.getSetting("spotify_playlist_url");
+      if (!playlistUrl) return res.json({ ok: false, step: "url", error: "No playlist URL saved" });
+      const match = playlistUrl.match(/playlist\/([a-zA-Z0-9]+)/);
+      if (!match) return res.json({ ok: false, step: "parse", error: "Could not parse playlist ID from URL: " + playlistUrl });
+      const playlistId = match[1];
+      const r = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=1`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await r.json() as any;
+      res.json({ ok: r.ok, status: r.status, playlistId, total: data.total, hasItems: !!data.items, itemCount: data.items?.length, error: data.error, firstTrack: data.items?.[0]?.track?.name });
+    } catch (err: any) { res.json({ ok: false, error: err.message }); }
+  });
+
   // === Songs ===
   app.get(api.songs.list.path, async (req, res) => {
     const search = req.query.search as string | undefined;
@@ -162,13 +180,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           headers: { "Authorization": `Bearer ${token}` }
         });
         const data = await r.json() as any;
+        console.log(`[Spotify sync] status=${r.status} hasItems=${!!data.items} total=${data.total} error=${JSON.stringify(data.error)}`);
         if (!r.ok) {
           const msg = data?.error?.message || `Spotify API error (${r.status})`;
           const hint = r.status === 404 ? " — playlist not found or is private. Make the playlist Public in Spotify first." :
                        r.status === 401 ? " — invalid Spotify credentials. Re-save your Client ID and Secret." : "";
           return res.status(400).json({ message: msg + hint });
         }
-        if (!data.items) break;
+        if (!data.items) {
+          console.log(`[Spotify sync] No items in response — full response keys: ${Object.keys(data).join(", ")}`);
+          break;
+        }
         total = data.total;
         for (const item of data.items) {
           if (!item.track) continue;
@@ -390,7 +412,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
 export async function seedDatabase() {
   const songs = await storage.getSongs(undefined, false);
-  if (songs.length === 0) {
+  const hasPlaylistUrl = await storage.getSetting("spotify_playlist_url");
+  if (songs.length === 0 && !hasPlaylistUrl) {
     const initialSongs = [
       { title: "Don't Stop Believin'", artist: "Journey", genre: "Rock", spotifyUrl: "https://open.spotify.com/track/4bHsxqR3G5lLgZQVKnM1OL" },
       { title: "Bohemian Rhapsody", artist: "Queen", genre: "Rock", spotifyUrl: "https://open.spotify.com/track/3z8h0TU7NB750qJyF7RIvx" },
