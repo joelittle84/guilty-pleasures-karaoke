@@ -152,25 +152,31 @@ export default function BandDashboard() {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="queue" className="space-y-6">
-          <TabsList className="bg-white/5 border border-white/10 p-1 rounded-xl flex-wrap h-auto gap-1">
-            <TabsTrigger value="queue" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-4 py-2 text-sm">
-              <ListMusic className="w-4 h-4 mr-1.5" /> Live Queue
-            </TabsTrigger>
-            <TabsTrigger value="songs" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-4 py-2 text-sm">
-              <Music className="w-4 h-4 mr-1.5" /> Songs
-            </TabsTrigger>
-            <TabsTrigger value="musicians" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-4 py-2 text-sm">
-              <Guitar className="w-4 h-4 mr-1.5" /> Musicians
-            </TabsTrigger>
-            <TabsTrigger value="presignup" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-4 py-2 text-sm">
-              <CalendarCheck className="w-4 h-4 mr-1.5" /> Pre-Signup
-            </TabsTrigger>
-            <TabsTrigger value="trivia" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-4 py-2 text-sm">
-              <Trophy className="w-4 h-4 mr-1.5" /> Trivia
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg px-4 py-2 text-sm">
-              <SettingsIcon className="w-4 h-4 mr-1.5" /> Settings
-            </TabsTrigger>
+          <TabsList className="bg-transparent border-0 p-0 h-auto flex-col gap-2 items-stretch">
+            {/* Primary actions — large, easy to tap during the show */}
+            <div className="grid grid-cols-2 gap-2">
+              <TabsTrigger value="queue" className="data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-[0_0_18px_-4px_hsl(var(--primary))] bg-white/5 border border-white/10 rounded-xl py-4 text-base font-semibold">
+                <ListMusic className="w-5 h-5 mr-2" /> Live Queue
+              </TabsTrigger>
+              <TabsTrigger value="musicians" className="data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-[0_0_18px_-4px_hsl(var(--primary))] bg-white/5 border border-white/10 rounded-xl py-4 text-base font-semibold">
+                <Guitar className="w-5 h-5 mr-2" /> Musicians
+              </TabsTrigger>
+            </div>
+            {/* Secondary actions */}
+            <div className="grid grid-cols-4 gap-1.5">
+              <TabsTrigger value="songs" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
+                <Music className="w-3.5 h-3.5 mr-1" /> Songs
+              </TabsTrigger>
+              <TabsTrigger value="presignup" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
+                <CalendarCheck className="w-3.5 h-3.5 mr-1" /> Pre-Signup
+              </TabsTrigger>
+              <TabsTrigger value="trivia" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
+                <Trophy className="w-3.5 h-3.5 mr-1" /> Trivia
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
+                <SettingsIcon className="w-3.5 h-3.5 mr-1" /> Settings
+              </TabsTrigger>
+            </div>
           </TabsList>
 
           <TabsContent value="queue"><QueueView /></TabsContent>
