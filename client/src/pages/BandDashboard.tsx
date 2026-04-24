@@ -300,8 +300,8 @@ function SongsManager() {
             const idxTrack = first.findIndex(c => c === "track name");
             const idxArtist = first.findIndex(c => c.includes("artist name"));
             const idxGenre = first.findIndex(c => c === "genres");
-            // Spotify column may be "Spotify ID", "Spotify URI", "Spotify URL" — match any
-            const idxSpotifyId = first.findIndex(c => c.startsWith("spotify"));
+            // Spotify column may be "Spotify ID", "Spotify URI", "Track URI", "Spotify URL" — match any
+            const idxSpotifyId = first.findIndex(c => c.startsWith("spotify") || c === "track uri" || c === "uri");
             for (const row of rows.slice(1)) {
               const title = String(row[idxTrack] || "").trim();
               const artist = String(row[idxArtist] || "").trim();
