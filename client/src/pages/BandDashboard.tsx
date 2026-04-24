@@ -296,17 +296,23 @@ function SongsManager() {
           const parsed: { title: string; artist: string; genre: string; spotifyUrl: string }[] = [];
 
           if (isExportify) {
-            // Exportify format: Spotify ID, Artist Name(s), Track Name, Album Name, ..., Genres, ...
+            // Exportify format: Spotify ID/URI, Artist Name(s), Track Name, Album Name, ..., Genres, ...
             const idxTrack = first.findIndex(c => c === "track name");
             const idxArtist = first.findIndex(c => c.includes("artist name"));
             const idxGenre = first.findIndex(c => c === "genres");
-            const idxSpotifyId = first.findIndex(c => c === "spotify id");
+            // Spotify column may be "Spotify ID", "Spotify URI", "Spotify URL" — match any
+            const idxSpotifyId = first.findIndex(c => c.startsWith("spotify"));
             for (const row of rows.slice(1)) {
               const title = String(row[idxTrack] || "").trim();
               const artist = String(row[idxArtist] || "").trim();
               const genre = idxGenre >= 0 ? String(row[idxGenre] || "").trim() : "";
-              const spotifyId = idxSpotifyId >= 0 ? String(row[idxSpotifyId] || "").trim() : "";
-              const spotifyUrl = spotifyId ? `https://open.spotify.com/track/${spotifyId}` : "";
+              let rawSpotify = idxSpotifyId >= 0 ? String(row[idxSpotifyId] || "").trim() : "";
+              // Handle spotify:track:XXXX URI format — extract just the ID
+              if (rawSpotify.startsWith("spotify:track:")) rawSpotify = rawSpotify.replace("spotify:track:", "");
+              // Handle full URL format — extract track ID
+              const trackMatch = rawSpotify.match(/track\/([a-zA-Z0-9]+)/);
+              if (trackMatch) rawSpotify = trackMatch[1];
+              const spotifyUrl = rawSpotify && !rawSpotify.includes(":") ? `https://open.spotify.com/track/${rawSpotify}` : "";
               if (title && artist) parsed.push({ title, artist, genre, spotifyUrl });
             }
           } else {
@@ -330,17 +336,16 @@ function SongsManager() {
             }
           }
 
-          let count = 0, failed = 0;
-          for (const song of parsed) {
-            try {
-              await apiRequest("POST", "/api/songs", song);
-              count++;
-            } catch { failed++; }
-          }
+          const res = await apiRequest("POST", "/api/songs/csv-import", { songs: parsed });
+          const data = await res.json();
           queryClient.invalidateQueries({ queryKey: ["/api/songs"] });
+          const parts = [];
+          if (data.created) parts.push(`${data.created} added`);
+          if (data.updated) parts.push(`${data.updated} updated with Spotify links`);
+          if (data.skipped) parts.push(`${data.skipped} already existed`);
           toast({
             title: "Import Complete",
-            description: `Imported ${count} songs${failed ? ` · ${failed} failed` : ""}.`,
+            description: parts.length ? parts.join(" · ") : "Nothing new to import.",
           });
         } catch (err: any) {
           toast({ title: "Import Failed", description: err?.message, variant: "destructive" });

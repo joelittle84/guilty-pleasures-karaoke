@@ -82,6 +82,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(songs);
   });
 
+  // CSV import with smart upsert: creates new songs, updates spotifyUrl on existing ones
+  app.post("/api/songs/csv-import", isAuthenticated, async (req, res) => {
+    const { songs: incoming } = req.body as { songs: { title: string; artist: string; genre?: string; spotifyUrl?: string }[] };
+    if (!Array.isArray(incoming)) return res.status(400).json({ message: "Invalid payload" });
+    let created = 0, updated = 0, skipped = 0;
+    for (const s of incoming) {
+      if (!s.title || !s.artist) continue;
+      const existing = await storage.getSongByTitleArtist(s.title, s.artist);
+      if (existing) {
+        if (s.spotifyUrl && !existing.spotifyUrl) {
+          await storage.updateSong(existing.id, { spotifyUrl: s.spotifyUrl });
+          updated++;
+        } else {
+          skipped++;
+        }
+      } else {
+        await storage.createSong({ title: s.title, artist: s.artist, genre: s.genre || "", spotifyUrl: s.spotifyUrl || "" });
+        created++;
+      }
+    }
+    res.json({ created, updated, skipped });
+  });
+
   app.post(api.songs.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.songs.create.input.parse(req.body);

@@ -21,6 +21,7 @@ export interface IStorage extends IAuthStorage {
   deleteSongs(ids: number[]): Promise<number>;
   toggleSongActive(id: number): Promise<Song>;
   getSongBySpotifyUrl(spotifyUrl: string): Promise<Song | undefined>;
+  getSongByTitleArtist(title: string, artist: string): Promise<Song | undefined>;
 
   getRequests(status?: string): Promise<RequestWithSongs[]>;
   createRequest(input: CreateRequestInput): Promise<RequestWithSongs>;
@@ -69,7 +70,7 @@ export class DatabaseStorage implements IStorage {
   async getSongs(search?: string, activeOnly: boolean = true): Promise<Song[]> {
     let query = db.select().from(songs);
     if (activeOnly) query = query.where(eq(songs.isActive, true)) as any;
-    const results = await query.orderBy(desc(songs.createdAt));
+    const results = await query.orderBy(asc(songs.title));
     if (search) {
       const lower = search.toLowerCase();
       return results.filter(s => s.title.toLowerCase().includes(lower) || s.artist.toLowerCase().includes(lower));
@@ -107,6 +108,13 @@ export class DatabaseStorage implements IStorage {
   async getSongBySpotifyUrl(spotifyUrl: string): Promise<Song | undefined> {
     if (!spotifyUrl) return undefined;
     const [s] = await db.select().from(songs).where(eq(songs.spotifyUrl, spotifyUrl));
+    return s;
+  }
+
+  async getSongByTitleArtist(title: string, artist: string): Promise<Song | undefined> {
+    const [s] = await db.select().from(songs).where(
+      and(ilike(songs.title, title), ilike(songs.artist, artist))
+    );
     return s;
   }
 
