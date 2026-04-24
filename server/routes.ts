@@ -112,6 +112,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           headers: { "Authorization": `Bearer ${token}` }
         });
         const data = await r.json() as any;
+        if (!r.ok) {
+          const msg = data?.error?.message || `Spotify API error (${r.status})`;
+          const hint = r.status === 404 ? " — playlist not found or is private. Make the playlist Public in Spotify first." :
+                       r.status === 401 ? " — invalid Spotify credentials. Re-save your Client ID and Secret." : "";
+          return res.status(400).json({ message: msg + hint });
+        }
         if (!data.items) break;
         total = data.total;
         for (const item of data.items) {
@@ -156,6 +162,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           headers: { "Authorization": `Bearer ${token}` }
         });
         const data = await r.json() as any;
+        if (!r.ok) {
+          const msg = data?.error?.message || `Spotify API error (${r.status})`;
+          const hint = r.status === 404 ? " — playlist not found or is private. Make the playlist Public in Spotify first." :
+                       r.status === 401 ? " — invalid Spotify credentials. Re-save your Client ID and Secret." : "";
+          return res.status(400).json({ message: msg + hint });
+        }
         if (!data.items) break;
         total = data.total;
         for (const item of data.items) {
@@ -177,7 +189,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (offset >= total) break;
       }
       res.json({ imported, skipped });
-    } catch { res.status(500).json({ message: "Failed to sync from Spotify" }); }
+    } catch (err: any) { res.status(500).json({ message: err?.message || "Failed to sync from Spotify" }); }
   });
 
   // === Requests ===
