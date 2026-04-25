@@ -304,7 +304,7 @@ export default function Home() {
           <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent z-40">
             <div className="max-w-md mx-auto">
               <NeonButton onClick={() => setShowConfirm(true)} size="lg" className="w-full shadow-2xl shadow-primary/20">
-                <ListMusic className="w-5 h-5 mr-2" /> Review Requests ({selectedSongs.length})
+                <ListMusic className="w-5 h-5 mr-2" /> Confirm Song ({selectedSongs.length})
               </NeonButton>
             </div>
           </motion.div>

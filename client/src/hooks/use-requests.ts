@@ -18,7 +18,9 @@ export function useRequests(status?: string) {
       // Note: we're using custom<any> in schema for response, but it matches RequestsListResponse
       return await res.json();
     },
-    refetchInterval: 10000, // Poll every 10s for new requests during live show
+    staleTime: 0,
+    refetchInterval: 3000, // Poll every 3s for new requests during live show
+    refetchOnWindowFocus: true,
   });
 }
 
