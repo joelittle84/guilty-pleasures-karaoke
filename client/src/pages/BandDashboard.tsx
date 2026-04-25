@@ -18,7 +18,7 @@ import {
   Music, Clock, Check, X, LogOut, Loader2, Trash2, Guitar, Eye, EyeOff,
   Settings as SettingsIcon, QrCode, FileUp, DollarSign, Trophy, Play,
   ChevronRight, SkipForward, Users, Sparkles, ListMusic, Upload, CalendarCheck,
-  Timer, Hash
+  Timer, Hash, Lock
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -265,6 +265,19 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
           </p>
         </CardContent>
       </Card>
+
+      {!isOwner && (
+        <Card className="bg-card border-yellow-500/30">
+          <CardContent className="flex items-start gap-3 py-4">
+            <Lock className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-yellow-300">Owner-only settings below</p>
+              <p className="text-xs text-muted-foreground">PIN configuration and other owner controls require signing in with your Replit account.</p>
+              <a href="/api/login" className="text-xs text-primary underline underline-offset-4 hover:text-white transition-colors">Sign in with Replit to unlock</a>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isOwner && (
         <Card className="bg-card border-white/10">
