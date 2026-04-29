@@ -305,6 +305,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.status(204).send();
   });
 
+  // Remove a single song from a request (without deleting the whole request)
+  app.delete('/api/requests/:id/songs/:songId', isBandAuthed, async (req, res) => {
+    await storage.removeRequestSong(Number(req.params.id), Number(req.params.songId));
+    res.status(204).send();
+  });
+
   app.get("/api/queue-info", async (req, res) => {
     const pending = await storage.getRequests();
     const active = pending.filter(r => r.status === "pending" || r.status === "approved");
@@ -480,6 +486,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     await storage.clearPreSignups();
     res.status(204).send();
   });
+
+  // One-time cleanup: strip Spotify version suffixes from existing song titles in DB
+  const cleaned = await storage.cleanupSongTitles(cleanSongTitle);
+  if (cleaned > 0) console.log(`[startup] Cleaned ${cleaned} song title(s)`);
 
   await seedDatabase();
   return httpServer;

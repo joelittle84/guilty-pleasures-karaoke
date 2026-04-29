@@ -27,6 +27,8 @@ export interface IStorage extends IAuthStorage {
   createRequest(input: CreateRequestInput): Promise<RequestWithSongs>;
   updateRequestStatus(id: number, status: string): Promise<RequestWithSongs>;
   deleteRequest(id: number): Promise<void>;
+  removeRequestSong(requestId: number, songId: number): Promise<void>;
+  cleanupSongTitles(cleanFn: (t: string) => string): Promise<number>;
 
   getSetting(key: string): Promise<string | undefined>;
   updateSetting(key: string, value: string): Promise<string>;
@@ -171,6 +173,25 @@ export class DatabaseStorage implements IStorage {
   async deleteRequest(id: number): Promise<void> {
     await db.delete(requestSongs).where(eq(requestSongs.requestId, id));
     await db.delete(requests).where(eq(requests.id, id));
+  }
+
+  async removeRequestSong(requestId: number, songId: number): Promise<void> {
+    await db.delete(requestSongs).where(
+      and(eq(requestSongs.requestId, requestId), eq(requestSongs.songId, songId))
+    );
+  }
+
+  async cleanupSongTitles(cleanFn: (t: string) => string): Promise<number> {
+    const all = await db.select().from(songs);
+    let count = 0;
+    for (const song of all) {
+      const cleaned = cleanFn(song.title);
+      if (cleaned !== song.title) {
+        await db.update(songs).set({ title: cleaned }).where(eq(songs.id, song.id));
+        count++;
+      }
+    }
+    return count;
   }
 
   async getSetting(key: string): Promise<string | undefined> {

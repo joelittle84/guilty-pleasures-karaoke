@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl, type CreateRequestInput, type UpdateRequestStatusInput } from "@shared/routes";
+import { apiRequest } from "@/lib/queryClient";
 
 // GET /api/requests (Protected)
 export function useRequests(status?: string) {
@@ -58,6 +59,38 @@ export function useUpdateRequestStatus() {
       });
       if (!res.ok) throw new Error("Failed to update status");
       return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.requests.list.path] });
+    },
+  });
+}
+
+// DELETE /api/requests/:id/songs/:songId — remove one song from a request
+export function useRemoveRequestSong() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ requestId, songId }: { requestId: number; songId: number }) => {
+      const res = await fetch(`/api/requests/${requestId}/songs/${songId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to remove song");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.requests.list.path] });
+    },
+  });
+}
+
+// DELETE /api/requests/:id — remove entire request
+export function useDeleteRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.requests.delete.path, { id });
+      const res = await fetch(url, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete request");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.requests.list.path] });

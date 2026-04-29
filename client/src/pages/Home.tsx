@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useSongs } from "@/hooks/use-songs";
 import { useCreateRequest } from "@/hooks/use-requests";
 import { useSettings } from "@/hooks/use-settings";
@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 
 export default function Home() {
   const [search, setSearch] = useState("");
+  const [artistFilter, setArtistFilter] = useState("all");
+  const [genreFilter, setGenreFilter] = useState("all");
   const [selectedSongs, setSelectedSongs] = useState<Song[]>([]);
   const [participantName, setParticipantName] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
@@ -50,8 +52,30 @@ export default function Home() {
   const [preSignupSongs, setPreSignupSongs] = useState<Song[]>([]);
   const [preSignupSearch, setPreSignupSearch] = useState("");
 
-  const { data: songs, isLoading } = useSongs(search);
-  const { data: allSongs } = useSongs("");
+  const { data: allSongs, isLoading } = useSongs("", true);
+
+  const artists = useMemo(() => {
+    if (!allSongs) return [];
+    const set = new Set(allSongs.map(s => s.artist).filter(Boolean));
+    return Array.from(set).sort();
+  }, [allSongs]);
+
+  const genres = useMemo(() => {
+    if (!allSongs) return [];
+    const set = new Set(allSongs.map(s => s.genre).filter(Boolean) as string[]);
+    return Array.from(set).sort();
+  }, [allSongs]);
+
+  const songs = useMemo(() => {
+    if (!allSongs) return [];
+    const q = search.toLowerCase();
+    return allSongs.filter(s => {
+      const matchSearch = !q || s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q);
+      const matchArtist = artistFilter === "all" || s.artist === artistFilter;
+      const matchGenre = genreFilter === "all" || s.genre === genreFilter;
+      return matchSearch && matchArtist && matchGenre;
+    });
+  }, [allSongs, search, artistFilter, genreFilter]);
   const { mutate: submitRequest, isPending: isSubmitting } = useCreateRequest();
   const { data: guitarMode } = useSettings("guitar_mode");
   const { data: guitarInstructions } = useSettings("guitar_instructions");
@@ -262,16 +286,45 @@ export default function Home() {
             </motion.div>
           )}
 
-          <div className="mt-6 relative max-w-sm mx-auto">
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground">
-              <Search className="w-5 h-5" />
+          <div className="mt-6 max-w-sm mx-auto space-y-2">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground">
+                <Search className="w-5 h-5" />
+              </div>
+              <Input
+                placeholder="Search artist or song..."
+                className="pl-10 h-14 bg-white/5 border-white/10 backdrop-blur-xl rounded-2xl text-lg focus:border-primary/50 transition-all"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                data-testid="input-song-search"
+              />
             </div>
-            <Input
-              placeholder="Search artist or song..."
-              className="pl-10 h-14 bg-white/5 border-white/10 backdrop-blur-xl rounded-2xl text-lg focus:border-primary/50 transition-all"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+            {(artists.length > 0 || genres.length > 0) && (
+              <div className="flex gap-2">
+                {artists.length > 0 && (
+                  <select
+                    value={artistFilter}
+                    onChange={e => setArtistFilter(e.target.value)}
+                    data-testid="select-artist-filter"
+                    className="flex-1 h-9 px-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
+                  >
+                    <option value="all">All Artists</option>
+                    {artists.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                )}
+                {genres.length > 0 && (
+                  <select
+                    value={genreFilter}
+                    onChange={e => setGenreFilter(e.target.value)}
+                    data-testid="select-genre-filter"
+                    className="flex-1 h-9 px-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
+                  >
+                    <option value="all">All Genres</option>
+                    {genres.map(g => <option key={g} value={g!}>{g}</option>)}
+                  </select>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -293,7 +346,10 @@ export default function Home() {
         ) : (
           <div className="text-center py-12 text-muted-foreground">
             <Music2 className="w-12 h-12 mx-auto mb-4 opacity-20" />
-            <p>No songs found{search ? ` for "${search}"` : ""}</p>
+            <p>No songs found{search || artistFilter !== "all" || genreFilter !== "all" ? " — try clearing filters" : ""}</p>
+            {(search || artistFilter !== "all" || genreFilter !== "all") && (
+              <button onClick={() => { setSearch(""); setArtistFilter("all"); setGenreFilter("all"); }} className="mt-2 text-sm text-primary underline underline-offset-4">Clear filters</button>
+            )}
           </div>
         )}
       </main>

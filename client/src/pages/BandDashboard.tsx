@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useRequests, useUpdateRequestStatus } from "@/hooks/use-requests";
+import { useRequests, useUpdateRequestStatus, useRemoveRequestSong } from "@/hooks/use-requests";
 import { useSongs, useDeleteSong, useDeleteSongs, useToggleSong } from "@/hooks/use-songs";
 import { useSettings, useUpdateSetting } from "@/hooks/use-settings";
 import { useGuestMusicians, useUpdateGuestStatus, useDeleteGuest, useClearCompletedGuests } from "@/hooks/use-guest-musicians";
@@ -846,10 +846,15 @@ function PreSignupManager() {
 function QueueView() {
   const { data: requests, isLoading } = useRequests();
   const { mutate: updateStatus } = useUpdateRequestStatus();
+  const { mutate: removeSong } = useRemoveRequestSong();
   const { toast } = useToast();
 
   const handleStatus = (id: number, status: 'approved' | 'completed' | 'rejected') => {
     updateStatus({ id, status }, { onSuccess: () => toast({ title: `Request ${status}` }) });
+  };
+
+  const handleRemoveSong = (requestId: number, songId: number, songTitle: string) => {
+    removeSong({ requestId, songId }, { onSuccess: () => toast({ title: `"${songTitle}" removed from request` }) });
   };
 
   if (isLoading) return <div className="text-center py-12"><Loader2 className="w-8 h-8 animate-spin mx-auto opacity-50" /></div>;
@@ -891,12 +896,20 @@ function QueueView() {
             <CardContent className="pt-4 space-y-4">
               <div className="space-y-2">
                 {req.songs.map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 bg-black/20 p-2 rounded-lg border border-white/5">
-                    <span className="font-mono text-xs text-muted-foreground w-4">{i + 1}.</span>
-                    <div className="min-w-0">
+                  <div key={i} className="flex items-center gap-3 bg-black/20 p-2 rounded-lg border border-white/5 group">
+                    <span className="font-mono text-xs text-muted-foreground w-4 shrink-0">{i + 1}.</span>
+                    <div className="min-w-0 flex-1">
                       <p className="font-medium truncate text-sm">{item.song.title}</p>
                       <p className="text-xs text-muted-foreground truncate">{item.song.artist}</p>
                     </div>
+                    <button
+                      onClick={() => handleRemoveSong(req.id, item.song.id, item.song.title)}
+                      title="Remove this song"
+                      data-testid={`button-remove-song-${req.id}-${item.song.id}`}
+                      className="shrink-0 p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 ))}
               </div>
