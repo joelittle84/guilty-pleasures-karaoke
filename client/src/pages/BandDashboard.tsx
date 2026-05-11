@@ -119,6 +119,10 @@ export default function BandDashboard() {
     }
   };
 
+  // Fetch requests for badge (returns null on 401, handled by hook)
+  const { data: allRequestsForBadge } = useRequests();
+  const pendingCount = (allRequestsForBadge as any[] | null)?.filter((r: any) => r.status === 'pending').length ?? 0;
+
   if (bandAuthed === null || authLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
@@ -155,8 +159,13 @@ export default function BandDashboard() {
           <TabsList className="bg-transparent border-0 p-0 h-auto flex-col gap-2 items-stretch">
             {/* Primary actions — large, easy to tap during the show */}
             <div className="grid grid-cols-2 gap-2">
-              <TabsTrigger value="queue" className="data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-[0_0_18px_-4px_hsl(var(--primary))] bg-white/5 border border-white/10 rounded-xl py-4 text-base font-semibold">
+              <TabsTrigger value="queue" className="data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-[0_0_18px_-4px_hsl(var(--primary))] bg-white/5 border border-white/10 rounded-xl py-4 text-base font-semibold relative">
                 <ListMusic className="w-5 h-5 mr-2" /> Live Queue
+                {pendingCount > 0 && (
+                  <span className="ml-2 min-w-[1.35rem] h-[1.35rem] rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center px-1 shadow-[0_0_8px_rgba(239,68,68,0.7)]">
+                    {pendingCount}
+                  </span>
+                )}
               </TabsTrigger>
               <TabsTrigger value="musicians" className="data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-[0_0_18px_-4px_hsl(var(--primary))] bg-white/5 border border-white/10 rounded-xl py-4 text-base font-semibold">
                 <Guitar className="w-5 h-5 mr-2" /> Musicians
@@ -201,6 +210,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const { data: businessInfo } = useSettings("business_info");
   const { data: logoUrl } = useSettings("logo_url");
   const { data: artworkUrl } = useSettings("hero_artwork_url");
+  const { data: signupsEnabledSetting } = useSettings("signups_enabled");
   const { mutate: updateSetting, isPending: isSaving } = useUpdateSetting();
   const { toast } = useToast();
 
@@ -242,8 +252,32 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
     });
   };
 
+  const signupsEnabled = signupsEnabledSetting?.value !== "false";
+  const toggleSignups = () => {
+    const newVal = signupsEnabled ? "false" : "true";
+    updateSetting({ key: "signups_enabled", value: newVal }, {
+      onSuccess: () => toast({ title: `Signups ${newVal === "true" ? "opened" : "closed"}` })
+    });
+  };
+
   return (
     <div className="max-w-2xl space-y-6 pb-20">
+      {/* Signups toggle — operational, shown first */}
+      <Card className={cn("border-2 transition-colors", signupsEnabled ? "border-green-500/40 bg-green-950/10" : "border-red-500/30 bg-red-950/10")}>
+        <CardContent className="py-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="font-bold text-base flex items-center gap-2">
+              <span className={cn("w-2 h-2 rounded-full shrink-0", signupsEnabled ? "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.8)]" : "bg-red-400")} />
+              General Signups: {signupsEnabled ? "OPEN" : "CLOSED"}
+            </p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {signupsEnabled ? "Audience members can submit song requests" : "Signups are paused — audience sees a 'check back later' message"}
+            </p>
+          </div>
+          <Switch checked={signupsEnabled} onCheckedChange={toggleSignups} data-testid="switch-signups-enabled" />
+        </CardContent>
+      </Card>
+
       <Card className="bg-card border-white/10">
         <CardHeader><CardTitle className="flex items-center gap-2"><QrCode className="w-5 h-5 text-primary" /> Share Your Show</CardTitle></CardHeader>
         <CardContent className="flex flex-col items-center p-8 space-y-4">
@@ -913,20 +947,34 @@ function QueueView() {
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-2">
+              <div className="pt-3 flex gap-3">
                 {req.status === 'pending' ? (
                   <>
-                    <NeonButton variant="ghost" size="sm" className="text-red-400 hover:bg-red-950/30" onClick={() => handleStatus(req.id, 'rejected')}>
-                      <X className="w-4 h-4 mr-1" /> Reject
-                    </NeonButton>
-                    <NeonButton size="sm" onClick={() => handleStatus(req.id, 'approved')}>
-                      <Check className="w-4 h-4 mr-1" /> Approve
-                    </NeonButton>
+                    <button
+                      onClick={() => handleStatus(req.id, 'rejected')}
+                      data-testid={`button-reject-${req.id}`}
+                      className="flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-red-950/40 border border-red-500/20 hover:bg-red-950/70 hover:border-red-500/50 active:scale-95 transition-all text-red-400"
+                    >
+                      <X className="w-5 h-5" />
+                      <span className="text-xs font-bold tracking-wide">REJECT</span>
+                    </button>
+                    <button
+                      onClick={() => handleStatus(req.id, 'approved')}
+                      data-testid={`button-approve-${req.id}`}
+                      className="flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/25 hover:border-primary/50 active:scale-95 transition-all text-primary"
+                    >
+                      <Check className="w-5 h-5" />
+                      <span className="text-xs font-bold tracking-wide">APPROVE</span>
+                    </button>
                   </>
                 ) : (
-                  <NeonButton className="col-span-2 bg-green-600 hover:bg-green-500 border-green-500/50" size="sm" onClick={() => handleStatus(req.id, 'completed')}>
-                    <Check className="w-4 h-4 mr-1.5" /> Mark Completed
-                  </NeonButton>
+                  <button
+                    onClick={() => handleStatus(req.id, 'completed')}
+                    data-testid={`button-complete-${req.id}`}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600/20 border border-green-500/30 hover:bg-green-600/35 active:scale-95 transition-all text-green-400 font-bold text-sm"
+                  >
+                    <Check className="w-4 h-4" /> Mark Completed
+                  </button>
                 )}
               </div>
             </CardContent>

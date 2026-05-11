@@ -11,7 +11,7 @@ import { NeonButton } from "@/components/NeonButton";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Check, Guitar, QrCode, DollarSign, Clock, Trophy, Sparkles, Users, CalendarCheck } from "lucide-react";
+import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Check, Guitar, QrCode, DollarSign, Clock, Trophy, Sparkles, Users, CalendarCheck, BookOpen } from "lucide-react";
 import { Song, TriviaSessionPublic } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
@@ -27,6 +27,7 @@ export default function Home() {
   const [participantName, setParticipantName] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submittedQueuePosition, setSubmittedQueuePosition] = useState(0);
   const [showGuestSignup, setShowGuestSignup] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [showTips, setShowTips] = useState(false);
@@ -83,6 +84,8 @@ export default function Home() {
   const { data: businessInfo } = useSettings("business_info");
   const { data: logoUrl } = useSettings("logo_url");
   const { data: artworkUrl } = useSettings("hero_artwork_url");
+  const { data: signupsEnabledSetting } = useSettings("signups_enabled");
+  const signupsOpen = signupsEnabledSetting?.value !== "false";
   const { mutate: signupGuest, isPending: isSigningUp } = useCreateGuestMusician();
   const { data: queueInfo } = useQueueInfo();
   const { data: activeTrivia } = useActiveTrivia();
@@ -144,8 +147,10 @@ export default function Home() {
       toast({ title: "Name Required", description: "Please enter your name so the band can call you up!", variant: "destructive" });
       return;
     }
+    const positionBeforeSubmit = queueInfo?.queueLength ?? 0;
     submitRequest({ participantName, songIds: selectedSongs.map(s => s.id) }, {
       onSuccess: () => {
+        setSubmittedQueuePosition(positionBeforeSubmit);
         setShowConfirm(false);
         setShowSuccess(true);
         setSelectedSongs([]);
@@ -274,6 +279,11 @@ export default function Home() {
                 <QrCode className="w-4 h-4 mr-2" /> Share
               </NeonButton>
             </motion.div>
+            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }}>
+              <Link href="/songbook" className="rounded-full border border-white/20 bg-white/5 text-white/70 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium hover:bg-white/10 hover:text-white transition-colors">
+                <BookOpen className="w-4 h-4" /> Song Book
+              </Link>
+            </motion.div>
           </div>
 
           {/* Wait time info */}
@@ -354,9 +364,22 @@ export default function Home() {
         )}
       </main>
 
+      {/* Signups closed banner */}
+      {!signupsOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-0 left-0 right-0 p-4 z-40"
+        >
+          <div className="max-w-md mx-auto bg-yellow-950/90 border border-yellow-500/40 rounded-2xl px-5 py-4 text-center backdrop-blur-md shadow-2xl">
+            <p className="text-yellow-300 font-semibold text-sm">Signups not yet open</p>
+            <p className="text-yellow-200/70 text-xs mt-1">Karaoke event signups will be activated at the time of the event. Check back to see if pre-signups are available.</p>
+          </div>
+        </motion.div>
+      )}
+
       {/* Floating action bar */}
       <AnimatePresence>
-        {selectedSongs.length > 0 && (
+        {selectedSongs.length > 0 && signupsOpen && (
           <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent z-40">
             <div className="max-w-md mx-auto">
               <NeonButton onClick={() => setShowConfirm(true)} size="lg" className="w-full shadow-2xl shadow-primary/20">
@@ -671,14 +694,27 @@ export default function Home() {
                 <span>{queueInfo.queueLength} people ahead · est. <strong className="text-white">{queueInfo.estimatedMinutes} min</strong> until your turn</span>
               </div>
             )}
-            <div className="space-y-3 pt-4 border-t border-white/10">
-              <label className="text-sm font-medium text-muted-foreground ml-1">Your Stage Name</label>
+            <div className="pt-5 border-t border-white/10 space-y-3">
+              <div className="text-center space-y-1">
+                <p className="text-xs uppercase tracking-widest text-primary/60 font-semibold">Almost there!</p>
+                <h3 className="text-2xl font-display font-bold bg-gradient-to-r from-purple-400 via-primary to-green-400 bg-clip-text text-transparent">
+                  What's Your Stage Name?
+                </h3>
+                <p className="text-sm text-muted-foreground">The band will call you up by this name 🎤</p>
+              </div>
               <div className="relative">
-                <User className="absolute left-3 top-3.5 w-5 h-5 text-muted-foreground" />
-                <Input value={participantName} onChange={e => setParticipantName(e.target.value)} placeholder="Enter your name..." className="pl-10 h-12 bg-black/40 border-white/10" />
+                <Mic2 className="absolute left-3 top-3.5 w-5 h-5 text-primary/70" />
+                <Input
+                  value={participantName}
+                  onChange={e => setParticipantName(e.target.value)}
+                  placeholder="Enter your name..."
+                  className="pl-10 h-14 bg-black/40 border-primary/30 text-lg font-medium focus:border-primary/70 transition-all"
+                  data-testid="input-participant-name"
+                  onKeyDown={e => e.key === "Enter" && handleSubmit()}
+                />
               </div>
             </div>
-            <NeonButton className="w-full mt-4" size="lg" onClick={handleSubmit} isLoading={isSubmitting}>
+            <NeonButton className="w-full mt-2" size="lg" onClick={handleSubmit} isLoading={isSubmitting}>
               <Mic2 className="w-5 h-5 mr-2" /> Submit to Band
             </NeonButton>
           </div>
@@ -695,13 +731,27 @@ export default function Home() {
             <DialogTitle className="text-2xl font-display">You're on the list!</DialogTitle>
             <DialogDescription className="text-muted-foreground pt-2">Your request is in. Listen for your name!</DialogDescription>
           </DialogHeader>
-          {queueInfo && queueInfo.queueLength > 0 && (
-            <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
-              <Clock className="w-4 h-4 text-primary" />
-              <span>Estimated wait: <strong className="text-white">{queueInfo.estimatedMinutes} min</strong></span>
-            </div>
-          )}
-          <div className="pt-6">
+          <div className="mt-4 space-y-2">
+            {submittedQueuePosition > 0 && (
+              <div className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/5 rounded-xl border border-white/10 text-sm text-muted-foreground">
+                <Users className="w-4 h-4 text-primary shrink-0" />
+                <span><strong className="text-white">{submittedQueuePosition}</strong> singer{submittedQueuePosition !== 1 ? "s" : ""} signed up before you</span>
+              </div>
+            )}
+            {submittedQueuePosition > 0 && (
+              <div className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/5 rounded-xl border border-white/10 text-sm text-muted-foreground">
+                <Clock className="w-4 h-4 text-primary shrink-0" />
+                <span>Estimated wait: <strong className="text-white">{submittedQueuePosition * 4} min</strong></span>
+              </div>
+            )}
+            {submittedQueuePosition === 0 && (
+              <div className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500/10 rounded-xl border border-green-500/20 text-sm text-green-300">
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>You're first in line — get ready!</span>
+              </div>
+            )}
+          </div>
+          <div className="pt-4">
             <NeonButton onClick={() => setShowSuccess(false)} variant="outline" className="w-full">Close</NeonButton>
           </div>
         </DialogContent>
