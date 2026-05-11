@@ -336,29 +336,25 @@ export default function Home() {
               />
             </div>
             {(artists.length > 0 || genres.length > 0) && (
-              <div className="flex gap-2">
-                {artists.length > 0 && (
-                  <select
-                    value={artistFilter}
-                    onChange={e => setArtistFilter(e.target.value)}
-                    data-testid="select-artist-filter"
-                    className="flex-1 h-9 px-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
-                  >
-                    <option value="all">All Artists</option>
-                    {artists.map(a => <option key={a} value={a}>{a}</option>)}
-                  </select>
-                )}
-                {genres.length > 0 && (
-                  <select
-                    value={genreFilter}
-                    onChange={e => setGenreFilter(e.target.value)}
-                    data-testid="select-genre-filter"
-                    className="flex-1 h-9 px-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
-                  >
-                    <option value="all">All Genres</option>
-                    {genres.map(g => <option key={g} value={g!}>{g}</option>)}
-                  </select>
-                )}
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={artistFilter}
+                  onChange={e => setArtistFilter(e.target.value)}
+                  data-testid="select-artist-filter"
+                  className="w-full h-9 px-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
+                >
+                  <option value="all">All Artists</option>
+                  {artists.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+                <select
+                  value={genreFilter}
+                  onChange={e => setGenreFilter(e.target.value)}
+                  data-testid="select-genre-filter"
+                  className="w-full h-9 px-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
+                >
+                  <option value="all">All Genres</option>
+                  {genres.map(g => <option key={g} value={g!}>{g}</option>)}
+                </select>
               </div>
             )}
           </div>
