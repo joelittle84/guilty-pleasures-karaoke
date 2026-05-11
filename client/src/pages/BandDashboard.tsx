@@ -18,7 +18,7 @@ import {
   Music, Clock, Check, X, LogOut, Loader2, Trash2, Guitar, Eye, EyeOff,
   Settings as SettingsIcon, QrCode, FileUp, DollarSign, Trophy, Play,
   ChevronRight, SkipForward, Users, Sparkles, ListMusic, Upload, CalendarCheck,
-  Timer, Hash, Lock
+  Timer, Hash, Lock, Briefcase, Mail, Phone, MapPin, Calendar, Plus, Link2, ImageIcon
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { QRCodeSVG } from "qrcode.react";
 import Papa from "papaparse";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ─── PIN Entry Screen ───────────────────────────────────────────────────────────
@@ -172,7 +173,7 @@ export default function BandDashboard() {
               </TabsTrigger>
             </div>
             {/* Secondary actions */}
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-5 gap-1.5">
               <TabsTrigger value="songs" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
                 <Music className="w-3.5 h-3.5 mr-1" /> Songs
               </TabsTrigger>
@@ -181,6 +182,9 @@ export default function BandDashboard() {
               </TabsTrigger>
               <TabsTrigger value="trivia" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
                 <Trophy className="w-3.5 h-3.5 mr-1" /> Trivia
+              </TabsTrigger>
+              <TabsTrigger value="booking" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
+                <Briefcase className="w-3.5 h-3.5 mr-1" /> Booking
               </TabsTrigger>
               <TabsTrigger value="settings" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
                 <SettingsIcon className="w-3.5 h-3.5 mr-1" /> Settings
@@ -193,6 +197,7 @@ export default function BandDashboard() {
           <TabsContent value="musicians"><GuestMusicianManager /></TabsContent>
           <TabsContent value="presignup"><PreSignupManager /></TabsContent>
           <TabsContent value="trivia"><TriviaManager /></TabsContent>
+          <TabsContent value="booking"><BookingManager /></TabsContent>
           <TabsContent value="settings"><SettingsView shareUrl={shareUrl} /></TabsContent>
         </Tabs>
       </main>
@@ -1262,6 +1267,320 @@ function TriviaManager() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+// ─── Booking Manager ───────────────────────────────────────────────────────────
+function BookingManager() {
+  const { toast } = useToast();
+  const { mutate: updateSetting } = useUpdateSetting();
+
+  const { data: bookingEnabled } = useSettings("booking_enabled");
+  const { data: bookingTitle } = useSettings("booking_title");
+  const { data: bookingEmail } = useSettings("booking_email");
+  const { data: bookingBio } = useSettings("booking_bio");
+  const { data: bookingGenres } = useSettings("booking_genres");
+  const { data: bookingPerfInfo } = useSettings("booking_performance_info");
+  const { data: bookingPhotosRaw } = useSettings("booking_photos");
+  const { data: bookingVideosRaw } = useSettings("booking_videos");
+
+  const isEnabled = bookingEnabled?.value === "true";
+  const photos: string[] = bookingPhotosRaw?.value ? (() => { try { return JSON.parse(bookingPhotosRaw.value); } catch { return []; } })() : [];
+  const videos: { url: string; title: string }[] = bookingVideosRaw?.value ? (() => { try { return JSON.parse(bookingVideosRaw.value); } catch { return []; } })() : [];
+
+  const [newVideoUrl, setNewVideoUrl] = useState("");
+  const [newVideoTitle, setNewVideoTitle] = useState("");
+  const [activeInquiryId, setActiveInquiryId] = useState<number | null>(null);
+
+  const { data: inquiries, isLoading: inquiriesLoading } = useQuery<any[]>({
+    queryKey: ["/api/booking/inquiries"],
+  });
+
+  const { mutate: deleteInquiry } = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/booking/inquiries/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/booking/inquiries"] }); toast({ title: "Inquiry deleted" }); },
+  });
+
+  const { mutate: updateInquiryStatus } = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) => apiRequest("PATCH", `/api/booking/inquiries/${id}`, { status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/booking/inquiries"] }),
+  });
+
+  const save = (key: string, value: string) => {
+    updateSetting({ key, value }, { onSuccess: () => toast({ title: "Saved" }) });
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const b64 = ev.target?.result as string;
+        const next = [...photos, b64];
+        save("booking_photos", JSON.stringify(next));
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
+  };
+
+  const removePhoto = (i: number) => {
+    const next = photos.filter((_, idx) => idx !== i);
+    save("booking_photos", JSON.stringify(next));
+  };
+
+  const addVideo = () => {
+    if (!newVideoUrl.trim()) return;
+    const next = [...videos, { url: newVideoUrl.trim(), title: newVideoTitle.trim() }];
+    save("booking_videos", JSON.stringify(next));
+    setNewVideoUrl("");
+    setNewVideoTitle("");
+  };
+
+  const removeVideo = (i: number) => {
+    const next = videos.filter((_, idx) => idx !== i);
+    save("booking_videos", JSON.stringify(next));
+  };
+
+  const newCount = inquiries?.filter((q: any) => q.status === "new").length ?? 0;
+
+  return (
+    <div className="max-w-2xl space-y-6">
+
+      {/* Enable toggle */}
+      <Card className="bg-card border-white/10">
+        <CardContent className="pt-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold">Enable Booking Button</p>
+              <p className="text-sm text-muted-foreground mt-0.5">Shows a "Book Us" button on the public home page</p>
+            </div>
+            <Switch checked={isEnabled} onCheckedChange={v => save("booking_enabled", v ? "true" : "false")} data-testid="switch-booking-enabled" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Press kit settings */}
+      <Card className="bg-card border-white/10">
+        <CardHeader><CardTitle className="flex items-center gap-2"><Briefcase className="w-4 h-4 text-primary" /> Press Kit / Booking Page</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Button / Page Title</label>
+            <div className="flex gap-2">
+              <Input
+                defaultValue={bookingTitle?.value || ""}
+                placeholder="Book Us"
+                className="bg-black/40 border-white/10"
+                onBlur={e => save("booking_title", e.target.value)}
+                data-testid="input-booking-title"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-muted-foreground" /> Contact Email</label>
+            <Input
+              defaultValue={bookingEmail?.value || ""}
+              placeholder="band@example.com"
+              type="email"
+              className="bg-black/40 border-white/10"
+              onBlur={e => save("booking_email", e.target.value)}
+              data-testid="input-booking-contact-email"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Band Bio / Description</label>
+            <Textarea
+              key={bookingBio?.value}
+              defaultValue={bookingBio?.value || ""}
+              placeholder="Tell bookers about your band — your sound, experience, what makes you special…"
+              rows={5}
+              className="bg-black/40 border-white/10 resize-none"
+              onBlur={e => save("booking_bio", e.target.value)}
+              data-testid="textarea-booking-bio"
+            />
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Genres / Style</label>
+              <Input
+                defaultValue={bookingGenres?.value || ""}
+                placeholder="Rock, Pop, Country…"
+                className="bg-black/40 border-white/10"
+                onBlur={e => save("booking_genres", e.target.value)}
+                data-testid="input-booking-genres"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Performance Info</label>
+              <Input
+                defaultValue={bookingPerfInfo?.value || ""}
+                placeholder="2–4 hr sets, full PA, etc."
+                className="bg-black/40 border-white/10"
+                onBlur={e => save("booking_performance_info", e.target.value)}
+                data-testid="input-booking-perf-info"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Photos */}
+      <Card className="bg-card border-white/10">
+        <CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="w-4 h-4 text-primary" /> Photos</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <label className="cursor-pointer flex items-center gap-2 w-fit">
+            <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} data-testid="input-booking-photos" />
+            <NeonButton variant="outline" size="sm" asChild>
+              <span><Upload className="w-4 h-4 mr-1.5" /> Upload Photos</span>
+            </NeonButton>
+            <span className="text-sm text-muted-foreground">{photos.length} photo{photos.length !== 1 ? "s" : ""}</span>
+          </label>
+          {photos.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {photos.map((src, i) => (
+                <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-white/10">
+                  <img src={src} alt="" className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => removePhoto(i)}
+                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                  >
+                    <X className="w-5 h-5 text-red-400" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* YouTube Videos */}
+      <Card className="bg-card border-white/10">
+        <CardHeader><CardTitle className="flex items-center gap-2"><Link2 className="w-4 h-4 text-primary" /> YouTube Videos</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={newVideoUrl}
+                onChange={e => setNewVideoUrl(e.target.value)}
+                placeholder="https://youtube.com/watch?v=…"
+                className="bg-black/40 border-white/10 flex-1"
+                data-testid="input-video-url"
+              />
+              <Input
+                value={newVideoTitle}
+                onChange={e => setNewVideoTitle(e.target.value)}
+                placeholder="Label (optional)"
+                className="bg-black/40 border-white/10 w-36"
+                data-testid="input-video-title"
+              />
+              <NeonButton variant="outline" size="sm" onClick={addVideo} data-testid="button-add-video">
+                <Plus className="w-4 h-4" />
+              </NeonButton>
+            </div>
+          </div>
+          {videos.length > 0 && (
+            <div className="space-y-2">
+              {videos.map((v, i) => (
+                <div key={i} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    {v.title && <p className="text-sm font-medium truncate">{v.title}</p>}
+                    <p className="text-xs text-muted-foreground truncate">{v.url}</p>
+                  </div>
+                  <button onClick={() => removeVideo(i)} className="text-muted-foreground hover:text-red-400 p-1 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Inquiries */}
+      <Card className="bg-card border-white/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="w-4 h-4 text-primary" /> Booking Inquiries
+            {newCount > 0 && (
+              <span className="ml-1 min-w-[1.25rem] h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center px-1">
+                {newCount}
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {inquiriesLoading ? (
+            <div className="text-center py-6"><Loader2 className="w-6 h-6 animate-spin mx-auto opacity-50" /></div>
+          ) : !inquiries || inquiries.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <Mail className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>No inquiries yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {inquiries.map((inq: any) => (
+                <div key={inq.id} className="border border-white/10 rounded-xl overflow-hidden">
+                  <div
+                    className="flex items-start justify-between p-3 cursor-pointer hover:bg-white/5 transition-colors"
+                    onClick={() => {
+                      setActiveInquiryId(activeInquiryId === inq.id ? null : inq.id);
+                      if (inq.status === "new") updateInquiryStatus({ id: inq.id, status: "read" });
+                    }}
+                  >
+                    <div className="flex items-start gap-2 min-w-0">
+                      {inq.status === "new" && <div className="w-2 h-2 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm">{inq.name}</p>
+                        <p className="text-xs text-muted-foreground">{inq.email}{inq.eventType ? ` · ${inq.eventType}` : ""}</p>
+                        {inq.eventDate && <p className="text-xs text-muted-foreground">{inq.eventDate}</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+                        inq.status === "new" ? "border-red-500/40 bg-red-500/10 text-red-300" :
+                        inq.status === "replied" ? "border-green-500/40 bg-green-500/10 text-green-300" :
+                        "border-white/15 bg-white/5 text-muted-foreground"
+                      }`}>
+                        {inq.status}
+                      </span>
+                      <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${activeInquiryId === inq.id ? "rotate-90" : ""}`} />
+                    </div>
+                  </div>
+                  {activeInquiryId === inq.id && (
+                    <div className="border-t border-white/10 p-3 bg-white/[0.02] space-y-3">
+                      {inq.phone && <p className="text-sm flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-muted-foreground" />{inq.phone}</p>}
+                      {inq.venue && <p className="text-sm flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-muted-foreground" />{inq.venue}</p>}
+                      {inq.message && <p className="text-sm text-white/70 bg-white/5 rounded-lg p-3 border border-white/5">{inq.message}</p>}
+                      <p className="text-xs text-muted-foreground">{format(new Date(inq.createdAt), "MMM d, yyyy h:mm a")}</p>
+                      <div className="flex gap-2 flex-wrap">
+                        <a href={`mailto:${inq.email}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-medium hover:bg-primary/20 transition-colors">
+                          <Mail className="w-3.5 h-3.5" /> Reply by Email
+                        </a>
+                        <button
+                          onClick={() => updateInquiryStatus({ id: inq.id, status: "replied" })}
+                          className="px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-300 text-xs font-medium hover:bg-green-500/20 transition-colors"
+                        >
+                          <Check className="w-3.5 h-3.5 inline mr-1" /> Mark Replied
+                        </button>
+                        <button
+                          onClick={() => deleteInquiry(inq.id)}
+                          className="px-3 py-1.5 rounded-lg bg-red-950/30 border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-950/60 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 inline mr-1" /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,13 +1,14 @@
 import { db } from "./db";
 import {
   songs, requests, requestSongs, users, settings, guestMusicians,
-  triviaSessions, triviaParticipants, preSignups,
+  triviaSessions, triviaParticipants, preSignups, bookingInquiries,
   type Song, type InsertSong, type UpdateSongRequest,
   type Request, type CreateRequestInput, type RequestWithSongs,
   type User, type UpsertUser,
   type Setting, type GuestMusician, type CreateGuestMusicianInput,
   type TriviaSession, type TriviaParticipant, type TriviaQuestion, type TriviaSessionPublic,
-  type PreSignup, type InsertPreSignup
+  type PreSignup, type InsertPreSignup,
+  type BookingInquiry, type InsertBookingInquiry
 } from "@shared/schema";
 import { eq, ilike, desc, asc, inArray, and, lt } from "drizzle-orm";
 import { IAuthStorage } from "./replit_integrations/auth/storage";
@@ -54,6 +55,11 @@ export interface IStorage extends IAuthStorage {
   deletePreSignup(id: number): Promise<void>;
   clearPreSignups(): Promise<void>;
   countPreSignups(): Promise<number>;
+
+  getBookingInquiries(): Promise<BookingInquiry[]>;
+  createBookingInquiry(input: InsertBookingInquiry): Promise<BookingInquiry>;
+  deleteBookingInquiry(id: number): Promise<void>;
+  updateBookingInquiryStatus(id: number, status: "new" | "read" | "replied"): Promise<BookingInquiry>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -382,6 +388,26 @@ export class DatabaseStorage implements IStorage {
   async countPreSignups(): Promise<number> {
     const result = await db.select().from(preSignups);
     return result.length;
+  }
+
+  // ── Booking Inquiries ────────────────────────────────────────────────────────
+
+  async getBookingInquiries(): Promise<BookingInquiry[]> {
+    return await db.select().from(bookingInquiries).orderBy(desc(bookingInquiries.createdAt));
+  }
+
+  async createBookingInquiry(input: InsertBookingInquiry): Promise<BookingInquiry> {
+    const [inquiry] = await db.insert(bookingInquiries).values(input).returning();
+    return inquiry;
+  }
+
+  async deleteBookingInquiry(id: number): Promise<void> {
+    await db.delete(bookingInquiries).where(eq(bookingInquiries.id, id));
+  }
+
+  async updateBookingInquiryStatus(id: number, status: "new" | "read" | "replied"): Promise<BookingInquiry> {
+    const [updated] = await db.update(bookingInquiries).set({ status }).where(eq(bookingInquiries.id, id)).returning();
+    return updated;
   }
 }
 

@@ -487,6 +487,64 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.status(204).send();
   });
 
+  // === Booking ===
+  // Public: get booking page content
+  app.get("/api/booking/page", async (req, res) => {
+    const [enabled, title, bio, photos, videos, genres, performanceInfo, email] = await Promise.all([
+      storage.getSetting("booking_enabled"),
+      storage.getSetting("booking_title"),
+      storage.getSetting("booking_bio"),
+      storage.getSetting("booking_photos"),
+      storage.getSetting("booking_videos"),
+      storage.getSetting("booking_genres"),
+      storage.getSetting("booking_performance_info"),
+      storage.getSetting("booking_email"),
+    ]);
+    res.json({
+      enabled: enabled === "true",
+      title: title || "",
+      bio: bio || "",
+      photos: photos ? JSON.parse(photos) : [],
+      videos: videos ? JSON.parse(videos) : [],
+      genres: genres || "",
+      performanceInfo: performanceInfo || "",
+      email: email || "",
+    });
+  });
+
+  // Public: submit booking inquiry
+  app.post("/api/booking/inquiries", async (req, res) => {
+    const enabled = await storage.getSetting("booking_enabled");
+    if (enabled !== "true") return res.status(400).json({ message: "Booking is not available right now." });
+    const { name, email, phone, eventDate, venue, eventType, message } = req.body;
+    if (!name?.trim() || !email?.trim()) return res.status(400).json({ message: "Name and email are required." });
+    const inquiry = await storage.createBookingInquiry({
+      name: name.trim(), email: email.trim(),
+      phone: phone?.trim() || null, eventDate: eventDate?.trim() || null,
+      venue: venue?.trim() || null, eventType: eventType?.trim() || null,
+      message: message?.trim() || null,
+    });
+    res.status(201).json(inquiry);
+  });
+
+  // Protected: list inquiries
+  app.get("/api/booking/inquiries", isBandAuthed, async (req, res) => {
+    res.json(await storage.getBookingInquiries());
+  });
+
+  // Protected: update inquiry status
+  app.patch("/api/booking/inquiries/:id", isBandAuthed, async (req, res) => {
+    const { status } = req.body;
+    if (!["new", "read", "replied"].includes(status)) return res.status(400).json({ message: "Invalid status" });
+    res.json(await storage.updateBookingInquiryStatus(Number(req.params.id), status));
+  });
+
+  // Protected: delete inquiry
+  app.delete("/api/booking/inquiries/:id", isBandAuthed, async (req, res) => {
+    await storage.deleteBookingInquiry(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // One-time cleanup: strip Spotify version suffixes from existing song titles in DB
   const cleaned = await storage.cleanupSongTitles(cleanSongTitle);
   if (cleaned > 0) console.log(`[startup] Cleaned ${cleaned} song title(s)`);

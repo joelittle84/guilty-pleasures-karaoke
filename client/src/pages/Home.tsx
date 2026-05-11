@@ -93,6 +93,8 @@ export default function Home() {
   const { mutate: submitAnswer, isPending: isSubmittingAnswer } = useSubmitTriviaAnswer();
   const { data: preSignupConfig } = usePreSignupConfig();
   const { mutate: createPreSignup, isPending: isPreSigningUp } = useCreatePreSignup();
+  const { data: bookingEnabled } = useSettings("booking_enabled");
+  const { data: bookingTitle } = useSettings("booking_title");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -220,6 +222,18 @@ export default function Home() {
     <div className="min-h-screen pb-32">
       {/* Hero */}
       <header className="relative pt-12 pb-8 px-4 overflow-hidden min-h-[300px] flex flex-col justify-center">
+        {/* Booking button — top left */}
+        {bookingEnabled?.value === "true" && (
+          <div className="absolute top-3 left-3 z-20">
+            <Link href="/booking">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white/80 hover:text-white text-xs font-semibold transition-all backdrop-blur-sm" data-testid="button-booking-inquiry">
+                <BookOpen className="w-3.5 h-3.5" />
+                {bookingTitle?.value || "Book Us"}
+              </button>
+            </Link>
+          </div>
+        )}
+
         {artworkUrl?.value ? (
           <div className="absolute top-0 left-0 w-full h-full z-0">
             <img src={artworkUrl.value} className="w-full h-full object-cover opacity-30" alt="Hero" />

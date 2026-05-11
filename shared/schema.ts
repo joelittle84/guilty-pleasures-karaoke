@@ -76,6 +76,19 @@ export const preSignups = pgTable("pre_signups", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const bookingInquiries = pgTable("booking_inquiries", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  eventDate: text("event_date"),
+  venue: text("venue"),
+  eventType: text("event_type"),
+  message: text("message"),
+  status: text("status", { enum: ["new", "read", "replied"] }).default("new").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // === RELATIONS ===
 import { relations } from "drizzle-orm";
 
@@ -101,6 +114,7 @@ export const insertSongSchema = createInsertSchema(songs).omit({ id: true, creat
 export const insertRequestSchema = createInsertSchema(requests).omit({ id: true, createdAt: true, status: true });
 export const insertGuestMusicianSchema = createInsertSchema(guestMusicians).omit({ id: true, createdAt: true, status: true });
 export const insertPreSignupSchema = createInsertSchema(preSignups).omit({ id: true, createdAt: true });
+export const insertBookingInquirySchema = createInsertSchema(bookingInquiries).omit({ id: true, createdAt: true, status: true });
 
 export const createRequestSchema = z.object({
   participantName: z.string().min(1, "Name is required"),
@@ -152,6 +166,8 @@ export type TriviaSession = typeof triviaSessions.$inferSelect;
 export type TriviaParticipant = typeof triviaParticipants.$inferSelect;
 export type PreSignup = typeof preSignups.$inferSelect;
 export type InsertPreSignup = z.infer<typeof insertPreSignupSchema>;
+export type BookingInquiry = typeof bookingInquiries.$inferSelect;
+export type InsertBookingInquiry = z.infer<typeof insertBookingInquirySchema>;
 
 export type RequestWithSongs = Request & {
   songs: (RequestSong & { song: Song })[];

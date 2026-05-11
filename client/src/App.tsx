@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import BandDashboard from "@/pages/BandDashboard";
 import SongBook from "@/pages/SongBook";
+import Booking from "@/pages/Booking";
 
 function Router() {
   return (
@@ -14,6 +15,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/songbook" component={SongBook} />
       <Route path="/band" component={BandDashboard} />
+      <Route path="/booking" component={Booking} />
       <Route component={NotFound} />
     </Switch>
   );
