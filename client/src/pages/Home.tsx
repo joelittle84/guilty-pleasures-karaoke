@@ -234,13 +234,12 @@ export default function Home() {
             {logoUrl?.value && <img src={logoUrl.value} className="h-20 mx-auto mb-6 drop-shadow-xl" alt="Logo" />}
             {businessName?.value ? (() => {
               const words = businessName.value.trim().split(/\s+/);
-              const mid = Math.ceil(words.length / 2);
-              const line1 = words.slice(0, mid).join(" ");
-              const line2 = words.slice(mid).join(" ");
+              const line1 = words.slice(0, 2).join(" ");
+              const line2 = words.slice(2).join(" ");
               return (
-                <h1 className="text-4xl md:text-5xl font-display font-black mb-2 leading-none">
-                  <span className="block text-white text-glow-pink pb-1">{line1}</span>
-                  {line2 && <span className="block text-white text-glow-green mt-1">{line2}</span>}
+                <h1 className="text-4xl md:text-5xl font-display font-black mb-2 leading-tight">
+                  <span className="block text-white text-glow-multicolor">{line1}</span>
+                  {line2 && <span className="block text-primary text-glow mt-1">{line2}</span>}
                 </h1>
               );
             })() : (
