@@ -345,8 +345,51 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
         <CardContent className="space-y-4">
           <div className="space-y-2"><label className="text-sm font-medium">Business / Project Name</label><Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Neon Nights Karaoke" className="bg-black/40 border-white/10" /></div>
           <div className="space-y-2"><label className="text-sm font-medium">Tagline / Info</label><Input value={info} onChange={e => setInfo(e.target.value)} placeholder="e.g. The premier live band experience" className="bg-black/40 border-white/10" /></div>
-          <div className="space-y-2"><label className="text-sm font-medium">Logo URL</label><Input value={logo} onChange={e => setLogo(e.target.value)} placeholder="https://example.com/logo.png" className="bg-black/40 border-white/10" /></div>
-          <div className="space-y-2"><label className="text-sm font-medium">Hero Artwork URL</label><Input value={artwork} onChange={e => setArtwork(e.target.value)} placeholder="https://example.com/hero.jpg" className="bg-black/40 border-white/10" /></div>
+
+          {/* Logo upload */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Logo</label>
+            <div className="flex items-center gap-3">
+              {logo && <img src={logo} alt="Logo preview" className="h-10 w-10 rounded object-contain bg-black/40 border border-white/10 shrink-0" />}
+              <label className="flex-1 cursor-pointer">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/40 border border-white/10 hover:border-primary/40 transition-colors text-sm text-muted-foreground hover:text-white">
+                  <Upload className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{logo ? "Change logo image" : "Upload logo image"}</span>
+                </div>
+                <input type="file" accept="image/*" className="hidden" onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = ev => setLogo(ev.target?.result as string);
+                  reader.readAsDataURL(file);
+                }} />
+              </label>
+              {logo && <button onClick={() => setLogo("")} className="text-muted-foreground hover:text-red-400 transition-colors shrink-0"><X className="w-4 h-4" /></button>}
+            </div>
+          </div>
+
+          {/* Hero artwork upload */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Hero Artwork</label>
+            <div className="flex items-center gap-3">
+              {artwork && <img src={artwork} alt="Artwork preview" className="h-10 w-16 rounded object-cover bg-black/40 border border-white/10 shrink-0" />}
+              <label className="flex-1 cursor-pointer">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/40 border border-white/10 hover:border-primary/40 transition-colors text-sm text-muted-foreground hover:text-white">
+                  <Upload className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{artwork ? "Change artwork image" : "Upload background artwork"}</span>
+                </div>
+                <input type="file" accept="image/*" className="hidden" onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = ev => setArtwork(ev.target?.result as string);
+                  reader.readAsDataURL(file);
+                }} />
+              </label>
+              {artwork && <button onClick={() => setArtwork("")} className="text-muted-foreground hover:text-red-400 transition-colors shrink-0"><X className="w-4 h-4" /></button>}
+            </div>
+          </div>
+
           <NeonButton onClick={saveBranding} size="sm" className="mt-2">Save Branding</NeonButton>
         </CardContent>
       </Card>
@@ -947,23 +990,23 @@ function QueueView() {
                   </div>
                 ))}
               </div>
-              <div className="pt-3 flex gap-3">
+              <div className="pt-3 flex gap-5">
                 {req.status === 'pending' ? (
                   <>
                     <button
                       onClick={() => handleStatus(req.id, 'rejected')}
                       data-testid={`button-reject-${req.id}`}
-                      className="flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-red-950/40 border border-red-500/20 hover:bg-red-950/70 hover:border-red-500/50 active:scale-95 transition-all text-red-400"
+                      className="flex-1 flex flex-col items-center justify-center gap-2 py-5 rounded-2xl bg-red-950/40 border border-red-500/20 hover:bg-red-950/70 hover:border-red-500/50 active:scale-95 transition-all text-red-400"
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-6 h-6" />
                       <span className="text-xs font-bold tracking-wide">REJECT</span>
                     </button>
                     <button
                       onClick={() => handleStatus(req.id, 'approved')}
                       data-testid={`button-approve-${req.id}`}
-                      className="flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/25 hover:border-primary/50 active:scale-95 transition-all text-primary"
+                      className="flex-1 flex flex-col items-center justify-center gap-2 py-5 rounded-2xl bg-primary/10 border border-primary/20 hover:bg-primary/25 hover:border-primary/50 active:scale-95 transition-all text-primary"
                     >
-                      <Check className="w-5 h-5" />
+                      <Check className="w-6 h-6" />
                       <span className="text-xs font-bold tracking-wide">APPROVE</span>
                     </button>
                   </>

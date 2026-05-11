@@ -232,10 +232,16 @@ export default function Home() {
         <div className="max-w-md mx-auto text-center relative z-10">
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5 }}>
             {logoUrl?.value && <img src={logoUrl.value} className="h-20 mx-auto mb-6 drop-shadow-xl" alt="Logo" />}
-            <h1 className="text-4xl md:text-5xl font-display font-black text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/70 mb-2 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
-              {businessName?.value || "LIVE BAND"}
-              <span className="block text-primary text-glow mt-1">{businessName?.value ? "" : "KARAOKE"}</span>
-            </h1>
+            {businessName?.value ? (
+              <h1 className="text-4xl md:text-5xl font-display font-black text-primary text-glow mb-2">
+                {businessName.value}
+              </h1>
+            ) : (
+              <h1 className="text-4xl md:text-5xl font-display font-black mb-2">
+                <span className="text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/70 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">LIVE BAND</span>
+                <span className="block text-primary text-glow mt-1">KARAOKE</span>
+              </h1>
+            )}
             <p className="text-muted-foreground font-medium text-lg">
               {businessInfo?.value || "You're the star. We're the band."}
             </p>

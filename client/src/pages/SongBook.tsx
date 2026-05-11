@@ -31,10 +31,8 @@ export default function SongBook() {
       {/* Header */}
       <header className="sticky top-0 z-10 bg-black/90 backdrop-blur-md border-b border-white/10">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          <Link href="/">
-            <a className="flex items-center gap-2 text-muted-foreground hover:text-white transition-colors text-sm">
-              <ArrowLeft className="w-4 h-4" /> Back
-            </a>
+          <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-white transition-colors text-sm">
+            <ArrowLeft className="w-4 h-4" /> Back
           </Link>
           <div className="flex items-center gap-2">
             <Music2 className="w-4 h-4 text-primary" />
@@ -108,10 +106,8 @@ export default function SongBook() {
 
         {/* Footer CTA */}
         <div className="pt-8 pb-4 text-center border-t border-white/10">
-          <Link href="/">
-            <a className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary/20 border border-primary/30 text-primary font-semibold hover:bg-primary/30 transition-colors text-sm">
-              <Music2 className="w-4 h-4" /> Select Songs & Sign Up
-            </a>
+          <Link href="/" className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary/20 border border-primary/30 text-primary font-semibold hover:bg-primary/30 transition-colors text-sm">
+            <Music2 className="w-4 h-4" /> Select Songs & Sign Up
           </Link>
         </div>
       </div>
