@@ -4,6 +4,7 @@ import { NeonButton } from "@/components/NeonButton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/hooks/use-settings";
 import { apiRequest } from "@/lib/queryClient";
 import { ArrowLeft, Mail, Phone, Calendar, MapPin, Music2, Play, CheckCircle2, Loader2 } from "lucide-react";
 import { Link } from "wouter";
