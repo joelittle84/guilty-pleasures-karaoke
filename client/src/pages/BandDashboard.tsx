@@ -241,13 +241,18 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
     });
   };
 
-  const saveBranding = () => {
-    updateSetting({ key: "business_name", value: name });
-    updateSetting({ key: "business_info", value: info });
-    updateSetting({ key: "logo_url", value: logo });
-    updateSetting({ key: "hero_artwork_url", value: artwork }, {
-      onSuccess: () => toast({ title: "Branding saved" })
-    });
+  const saveBranding = async () => {
+    try {
+      await Promise.all([
+        updateSetting({ key: "business_name", value: name }),
+        updateSetting({ key: "business_info", value: info }),
+        updateSetting({ key: "logo_url", value: logo }),
+        updateSetting({ key: "hero_artwork_url", value: artwork }),
+      ]);
+      toast({ title: "Branding saved" });
+    } catch {
+      toast({ title: "Failed to save branding", variant: "destructive" });
+    }
   };
 
   const saveTips = () => {
@@ -556,7 +561,6 @@ function SongsManager() {
           queryClient.invalidateQueries({ queryKey: ["/api/songs"] });
           const parts = [];
           if (data.created) parts.push(`${data.created} added`);
-          if (data.updated) parts.push(`${data.updated} updated with Spotify links`);
           if (data.skipped) parts.push(`${data.skipped} already existed`);
           toast({
             title: "Import Complete",
@@ -1432,13 +1436,13 @@ function BookingManager() {
       <Card className="bg-card border-white/10">
         <CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="w-4 h-4 text-primary" /> Photos</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <label className="cursor-pointer flex items-center gap-2 w-fit">
-            <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} data-testid="input-booking-photos" />
-            <NeonButton variant="outline" size="sm" asChild>
-              <span><Upload className="w-4 h-4 mr-1.5" /> Upload Photos</span>
-            </NeonButton>
+          <div className="flex items-center gap-3">
+            <input id="booking-photos" type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} data-testid="input-booking-photos" />
+            <label htmlFor="booking-photos" className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-xl font-display font-semibold text-sm border-2 border-primary text-primary hover:bg-primary/10 transition-all">
+              <Upload className="w-4 h-4" /> Upload Photos
+            </label>
             <span className="text-sm text-muted-foreground">{photos.length} photo{photos.length !== 1 ? "s" : ""}</span>
-          </label>
+          </div>
           {photos.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
               {photos.map((src, i) => (

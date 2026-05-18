@@ -31,6 +31,7 @@ export default function Home() {
   const [showGuestSignup, setShowGuestSignup] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [showTips, setShowTips] = useState(false);
+  const [showSignupsClosed, setShowSignupsClosed] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [numSongs, setNumSongs] = useState(2);
   const [tipHandles, setTipHandles] = useState<{ venmo: string | null; zelle: string | null }>({ venmo: null, zelle: null });
@@ -386,26 +387,29 @@ export default function Home() {
         )}
       </main>
 
-      {/* Signups closed banner */}
-      {!signupsOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-0 left-0 right-0 p-4 z-40"
-        >
-          <div className="max-w-md mx-auto bg-yellow-950/90 border border-yellow-500/40 rounded-2xl px-5 py-4 text-center backdrop-blur-md shadow-2xl">
-            <p className="text-yellow-300 font-semibold text-sm">Signups not yet open</p>
-            <p className="text-yellow-200/70 text-xs mt-1">Karaoke event signups will be activated at the time of the event. Check back to see if pre-signups are available.</p>
-          </div>
-        </motion.div>
-      )}
+      {/* Signups closed dialog */}
+      <Dialog open={showSignupsClosed} onOpenChange={setShowSignupsClosed}>
+        <DialogContent className="bg-card border-yellow-500/30 sm:max-w-sm">
+          <DialogHeader className="text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center mb-2 text-yellow-400">
+              <Clock className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-lg font-display">Signups Not Yet Open</DialogTitle>
+            <DialogDescription className="text-yellow-200/70">
+              Karaoke event signups will be activated at the time of the event. Check back to see if pre-signups are available.
+            </DialogDescription>
+          </DialogHeader>
+          <NeonButton onClick={() => setShowSignupsClosed(false)} variant="outline" className="w-full">Got it</NeonButton>
+        </DialogContent>
+      </Dialog>
 
       {/* Floating action bar */}
       <AnimatePresence>
-        {selectedSongs.length > 0 && signupsOpen && (
+        {selectedSongs.length > 0 && (
           <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/90 to-transparent z-40">
             <div className="max-w-md mx-auto">
-              <NeonButton onClick={() => setShowConfirm(true)} size="lg" className="w-full shadow-2xl shadow-primary/20">
-                <ListMusic className="w-5 h-5 mr-2" /> Confirm Song ({selectedSongs.length})
+              <NeonButton onClick={() => signupsOpen ? setShowConfirm(true) : setShowSignupsClosed(true)} size="lg" className="w-full shadow-2xl shadow-primary/20">
+                <ListMusic className="w-5 h-5 mr-2" /> {signupsOpen ? `Confirm Song (${selectedSongs.length})` : "Signups Not Open"}
               </NeonButton>
             </div>
           </motion.div>
