@@ -1309,8 +1309,11 @@ function BookingManager() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/booking/inquiries"] }),
   });
 
-  const save = (key: string, value: string) => {
-    updateSetting({ key, value }, { onSuccess: () => toast({ title: "Saved" }) });
+  const { mutateAsync: updateSettingAsyncBooking } = useUpdateSetting();
+
+  const save = async (key: string, value: string) => {
+    await updateSettingAsyncBooking({ key, value });
+    toast({ title: "Saved" });
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
