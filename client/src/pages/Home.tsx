@@ -246,8 +246,9 @@ export default function Home() {
 
         <div className="max-w-md mx-auto text-center relative z-10">
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5 }}>
-            {logoUrl?.value && <img src={logoUrl.value} className="h-20 mx-auto mb-6 drop-shadow-xl" alt="Logo" />}
-            {businessName?.value ? (() => {
+            {logoUrl?.value ? (
+              <img src={logoUrl.value} className="h-24 md:h-32 mx-auto mb-4 drop-shadow-xl" alt="Logo" />
+            ) : businessName?.value ? (() => {
               const words = businessName.value.trim().split(/\s+/);
               const line1 = words.slice(0, 2).join(" ");
               const line2 = words.slice(2).join(" ");

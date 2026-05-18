@@ -216,7 +216,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const { data: logoUrl } = useSettings("logo_url");
   const { data: artworkUrl } = useSettings("hero_artwork_url");
   const { data: signupsEnabledSetting } = useSettings("signups_enabled");
-  const { mutate: updateSetting, isPending: isSaving } = useUpdateSetting();
+  const { mutate: updateSetting, mutateAsync: updateSettingAsync, isPending: isSaving } = useUpdateSetting();
   const { toast } = useToast();
 
   const [instructions, setInstructions] = useState("");
@@ -243,12 +243,10 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
 
   const saveBranding = async () => {
     try {
-      await Promise.all([
-        updateSetting({ key: "business_name", value: name }),
-        updateSetting({ key: "business_info", value: info }),
-        updateSetting({ key: "logo_url", value: logo }),
-        updateSetting({ key: "hero_artwork_url", value: artwork }),
-      ]);
+      await updateSettingAsync({ key: "business_name", value: name });
+      await updateSettingAsync({ key: "business_info", value: info });
+      await updateSettingAsync({ key: "logo_url", value: logo });
+      await updateSettingAsync({ key: "hero_artwork_url", value: artwork });
       toast({ title: "Branding saved" });
     } catch {
       toast({ title: "Failed to save branding", variant: "destructive" });
