@@ -39,9 +39,13 @@ export default function Booking() {
   const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
+  const [showLightbox, setShowLightbox] = useState(false);
   const [form, setForm] = useState({
     name: "", email: "", phone: "", eventDate: "", venue: "", eventType: "", message: "",
   });
+
+  const { data: bookingPhotoDisplay } = useSettings("booking_photo_display");
+  const displayMode = bookingPhotoDisplay?.value || "carousel";
 
   const { data: page, isLoading } = useQuery<BookingPage>({
     queryKey: ["/api/booking/page"],
@@ -129,50 +133,40 @@ export default function Booking() {
         {/* Photos */}
         {page.photos.length > 0 && (
           <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <div className="relative aspect-video rounded-2xl overflow-hidden bg-white/5 border border-white/10">
-              <img
-                src={page.photos[activePhoto]}
-                alt={`Photo ${activePhoto + 1}`}
-                className="w-full h-full object-cover"
-              />
-              {page.photos.length > 1 && (
-                <>
-                  <button
-                    onClick={() => setActivePhoto(i => (i - 1 + page.photos.length) % page.photos.length)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 rounded-full p-2 transition-colors"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setActivePhoto(i => (i + 1) % page.photos.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 rounded-full p-2 transition-colors rotate-180"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </button>
-                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                    {page.photos.map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setActivePhoto(i)}
-                        className={`w-2 h-2 rounded-full transition-all ${i === activePhoto ? "bg-white" : "bg-white/40"}`}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-            {page.photos.length > 1 && (
-              <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+            {displayMode === "grid" ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {page.photos.map((photo, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActivePhoto(i)}
-                    className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${i === activePhoto ? "border-primary" : "border-white/10 opacity-60"}`}
-                  >
-                    <img src={photo} alt="" className="w-full h-full object-cover" />
+                  <button key={i} onClick={() => { setActivePhoto(i); setShowLightbox(true); }} className="aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10">
+                    <img src={photo} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
+            ) : (
+              <>
+                <div className={`relative rounded-2xl overflow-hidden bg-white/5 border border-white/10 ${displayMode === "portrait" ? "aspect-[3/4]" : "aspect-video"}`}>
+                  <img src={page.photos[activePhoto]} alt={`Photo ${activePhoto + 1}`} className="w-full h-full object-cover" />
+                  {page.photos.length > 1 && (
+                    <>
+                      <button onClick={() => setActivePhoto(i => (i - 1 + page.photos.length) % page.photos.length)} className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 rounded-full p-2 transition-colors"><ArrowLeft className="w-4 h-4" /></button>
+                      <button onClick={() => setActivePhoto(i => (i + 1) % page.photos.length)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 rounded-full p-2 transition-colors rotate-180"><ArrowLeft className="w-4 h-4" /></button>
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                        {page.photos.map((_, i) => (
+                          <button key={i} onClick={() => setActivePhoto(i)} className={`w-2 h-2 rounded-full transition-all ${i === activePhoto ? "bg-white" : "bg-white/40"}`} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                {page.photos.length > 1 && (
+                  <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+                    {page.photos.map((photo, i) => (
+                      <button key={i} onClick={() => setActivePhoto(i)} className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${i === activePhoto ? "border-primary" : "border-white/10 opacity-60"}`}>
+                        <img src={photo} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </motion.section>
         )}

@@ -84,6 +84,7 @@ export default function Home() {
   const { data: businessName } = useSettings("business_name");
   const { data: businessInfo } = useSettings("business_info");
   const { data: logoUrl } = useSettings("logo_url");
+  const { data: logoSize } = useSettings("logo_size");
   const { data: artworkUrl } = useSettings("hero_artwork_url");
   const { data: signupsEnabledSetting } = useSettings("signups_enabled");
   const signupsOpen = signupsEnabledSetting?.value !== "false";
@@ -246,24 +247,33 @@ export default function Home() {
 
         <div className="max-w-md mx-auto text-center relative z-10">
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5 }}>
-            {logoUrl?.value ? (
-              <img src={logoUrl.value} className="h-24 md:h-32 mx-auto mb-4 drop-shadow-xl" alt="Logo" />
-            ) : businessName?.value ? (() => {
-              const words = businessName.value.trim().split(/\s+/);
-              const line1 = words.slice(0, 2).join(" ");
-              const line2 = words.slice(2).join(" ");
+            {(() => {
+              if (logoUrl?.value) {
+                const s = logoSize?.value || "medium";
+                let logoClass = "h-24 md:h-32 mx-auto mb-4 drop-shadow-xl";
+                if (s === "small") logoClass = "h-16 md:h-20 mx-auto mb-4 drop-shadow-xl";
+                else if (s === "large") logoClass = "h-32 md:h-48 mx-auto mb-4 drop-shadow-xl";
+                else if (s === "full") logoClass = "w-full max-w-md mx-auto mb-4 drop-shadow-xl";
+                return <img src={logoUrl.value} className={logoClass} alt="Logo" />;
+              }
+              if (businessName?.value) {
+                const words = businessName.value.trim().split(/\s+/);
+                const line1 = words.slice(0, 2).join(" ");
+                const line2 = words.slice(2).join(" ");
+                return (
+                  <h1 className="text-4xl md:text-5xl font-display font-black mb-2 leading-tight">
+                    <span className="block text-white text-glow-multicolor">{line1}</span>
+                    {line2 && <span className="block text-primary text-glow mt-1">{line2}</span>}
+                  </h1>
+                );
+              }
               return (
-                <h1 className="text-4xl md:text-5xl font-display font-black mb-2 leading-tight">
-                  <span className="block text-white text-glow-multicolor">{line1}</span>
-                  {line2 && <span className="block text-primary text-glow mt-1">{line2}</span>}
+                <h1 className="text-4xl md:text-5xl font-display font-black mb-2">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/70 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">LIVE BAND</span>
+                  <span className="block text-primary text-glow mt-1">KARAOKE</span>
                 </h1>
               );
-            })() : (
-              <h1 className="text-4xl md:text-5xl font-display font-black mb-2">
-                <span className="text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/70 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">LIVE BAND</span>
-                <span className="block text-primary text-glow mt-1">KARAOKE</span>
-              </h1>
-            )}
+            })()}
             <p className="text-muted-foreground font-medium text-lg">
               {businessInfo?.value || "You're the star. We're the band."}
             </p>

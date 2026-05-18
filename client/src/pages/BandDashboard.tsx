@@ -214,6 +214,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const { data: businessName } = useSettings("business_name");
   const { data: businessInfo } = useSettings("business_info");
   const { data: logoUrl } = useSettings("logo_url");
+  const { data: logoSizeSetting } = useSettings("logo_size");
   const { data: artworkUrl } = useSettings("hero_artwork_url");
   const { data: signupsEnabledSetting } = useSettings("signups_enabled");
   const { mutate: updateSetting, mutateAsync: updateSettingAsync, isPending: isSaving } = useUpdateSetting();
@@ -223,6 +224,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const [name, setName] = useState("");
   const [info, setInfo] = useState("");
   const [logo, setLogo] = useState("");
+  const [logoSize, setLogoSize] = useState("medium");
   const [artwork, setArtwork] = useState("");
   const [venmo, setVenmo] = useState("");
   const [zelle, setZelle] = useState("");
@@ -232,6 +234,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   useEffect(() => { if (businessName?.value) setName(businessName.value); }, [businessName]);
   useEffect(() => { if (businessInfo?.value) setInfo(businessInfo.value); }, [businessInfo]);
   useEffect(() => { if (logoUrl?.value) setLogo(logoUrl.value); }, [logoUrl]);
+  useEffect(() => { if (logoSizeSetting?.value) setLogoSize(logoSizeSetting.value); }, [logoSizeSetting]);
   useEffect(() => { if (artworkUrl?.value) setArtwork(artworkUrl.value); }, [artworkUrl]);
 
   const toggleGuitarMode = () => {
@@ -246,6 +249,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
       await updateSettingAsync({ key: "business_name", value: name });
       await updateSettingAsync({ key: "business_info", value: info });
       await updateSettingAsync({ key: "logo_url", value: logo });
+      await updateSettingAsync({ key: "logo_size", value: logoSize });
       await updateSettingAsync({ key: "hero_artwork_url", value: artwork });
       toast({ title: "Branding saved" });
     } catch {
@@ -353,6 +357,16 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
         <CardContent className="space-y-4">
           <div className="space-y-2"><label className="text-sm font-medium">Business / Project Name</label><Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Neon Nights Karaoke" className="bg-black/40 border-white/10" /></div>
           <div className="space-y-2"><label className="text-sm font-medium">Tagline / Info</label><Input value={info} onChange={e => setInfo(e.target.value)} placeholder="e.g. The premier live band experience" className="bg-black/40 border-white/10" /></div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Logo Size</label>
+            <select value={logoSize} onChange={e => setLogoSize(e.target.value)} className="w-full h-9 px-3 bg-black/40 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50">
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+              <option value="full">Full Width</option>
+            </select>
+          </div>
 
           {/* Logo upload */}
           <div className="space-y-2">
@@ -1286,6 +1300,7 @@ function BookingManager() {
   const { data: bookingPerfInfo } = useSettings("booking_performance_info");
   const { data: bookingPhotosRaw } = useSettings("booking_photos");
   const { data: bookingVideosRaw } = useSettings("booking_videos");
+  const { data: bookingPhotoDisplay } = useSettings("booking_photo_display");
 
   const isEnabled = bookingEnabled?.value === "true";
   const photos: string[] = bookingPhotosRaw?.value ? (() => { try { return JSON.parse(bookingPhotosRaw.value); } catch { return []; } })() : [];
@@ -1437,12 +1452,21 @@ function BookingManager() {
       <Card className="bg-card border-white/10">
         <CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="w-4 h-4 text-primary" /> Photos</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <input id="booking-photos" type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} data-testid="input-booking-photos" />
             <label htmlFor="booking-photos" className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-xl font-display font-semibold text-sm border-2 border-primary text-primary hover:bg-primary/10 transition-all">
               <Upload className="w-4 h-4" /> Upload Photos
             </label>
             <span className="text-sm text-muted-foreground">{photos.length} photo{photos.length !== 1 ? "s" : ""}</span>
+            <select
+              value={bookingPhotoDisplay?.value || "carousel"}
+              onChange={e => save("booking_photo_display", e.target.value)}
+              className="h-9 px-3 bg-black/40 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
+            >
+              <option value="carousel">Carousel (wide)</option>
+              <option value="portrait">Portrait (tall)</option>
+              <option value="grid">Grid (small squares)</option>
+            </select>
           </div>
           {photos.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
