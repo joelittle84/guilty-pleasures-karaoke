@@ -2,6 +2,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
+import { useRef, useEffect } from "react";
 import {
   Bold,
   Heading1,
@@ -47,6 +48,12 @@ function ToolbarButton({
 }
 
 export default function TipTapEditor({ value, onChange, placeholder }: TipTapEditorProps) {
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const lastSavedRef = useRef<string>("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -58,15 +65,32 @@ export default function TipTapEditor({ value, onChange, placeholder }: TipTapEdi
     ],
     content: value || "",
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const html = editor.getHTML();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        if (html !== lastSavedRef.current) {
+          lastSavedRef.current = html;
+          onChangeRef.current(html);
+        }
+      }, 600);
     },
     editorProps: {
       attributes: {
         class:
-          "prose prose-invert prose-sm max-w-none outline-none min-h-[140px] px-3 py-2",
+          "prose prose-invert prose-sm max-w-none outline-none min-h-[160px] px-3 py-2",
       },
     },
   });
+
+  // Sync external value changes (e.g. after API fetch) without destroying editor state
+  useEffect(() => {
+    if (!editor || !value) return;
+    const current = editor.getHTML();
+    if (value !== current && value !== lastSavedRef.current) {
+      lastSavedRef.current = value;
+      editor.commands.setContent(value, false);
+    }
+  }, [editor, value]);
 
   if (!editor) return null;
 
@@ -146,9 +170,11 @@ export default function TipTapEditor({ value, onChange, placeholder }: TipTapEdi
       {/* Editor */}
       <EditorContent editor={editor} />
 
-      {/* Character count */}
-      <div className="px-3 py-1 text-[11px] text-white/30 text-right border-t border-white/5">
-        {editor.getText().length} characters
+      {/* Status bar */}
+      <div className="px-3 py-1.5 text-[11px] text-white/30 text-right border-t border-white/5 flex items-center justify-end gap-2">
+        <span>{editor.getText().length} characters</span>
+        <span className="text-white/15">|</span>
+        <span className="text-white/20 italic">auto-saves after you pause typing</span>
       </div>
     </div>
   );

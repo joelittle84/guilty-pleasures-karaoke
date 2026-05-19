@@ -22,6 +22,8 @@ export function useUpdateSetting() {
     },
     onSuccess: (_, { key }) => {
       queryClient.invalidateQueries({ queryKey: [buildUrl(api.settings.get.path, { key })] });
+      queryClient.invalidateQueries({ queryKey: ["/api/booking/page"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tips"] });
     },
   });
 }
