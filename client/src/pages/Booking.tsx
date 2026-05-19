@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
+import ProseContent from "@/components/ProseContent";
 import { apiRequest } from "@/lib/queryClient";
 import { ArrowLeft, Mail, Phone, Calendar, MapPin, Music2, Play, CheckCircle2, Loader2 } from "lucide-react";
 import { Link } from "wouter";
@@ -107,9 +108,9 @@ export default function Booking() {
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-10">
 
         {/* Bio */}
-        {page.bio && (
+        {page.bio && page.bio !== "<p></p>" && (
           <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <p className="text-white/80 text-base leading-relaxed whitespace-pre-wrap">{page.bio}</p>
+            <ProseContent html={page.bio} />
           </motion.section>
         )}
 

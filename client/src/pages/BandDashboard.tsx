@@ -23,6 +23,7 @@ import {
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState, useRef } from "react";
+import TipTapEditor from "@/components/TipTapEditor";
 import { RequestWithSongs, TriviaSessionPublic } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { QRCodeSVG } from "qrcode.react";
@@ -1412,14 +1413,10 @@ function BookingManager() {
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Band Bio / Description</label>
-            <Textarea
-              key={bookingBio?.value}
-              defaultValue={bookingBio?.value || ""}
+            <TipTapEditor
+              value={bookingBio?.value || ""}
               placeholder="Tell bookers about your band — your sound, experience, what makes you special…"
-              rows={5}
-              className="bg-black/40 border-white/10 resize-none"
-              onBlur={e => save("booking_bio", e.target.value)}
-              data-testid="textarea-booking-bio"
+              onChange={html => save("booking_bio", html)}
             />
           </div>
 
