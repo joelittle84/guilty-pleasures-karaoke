@@ -3,6 +3,12 @@ interface ProseContentProps {
   className?: string;
 }
 
+function decodeHtmlEntities(text: string): string {
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = text;
+  return textarea.value;
+}
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -14,14 +20,17 @@ function formatContent(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
 
+  // Decode any HTML entities first (fixes double-encoded content from the db)
+  const decoded = decodeHtmlEntities(trimmed);
+
   // If it already contains HTML tags (from TipTap), trust it
-  if (/<[a-z][\s\S]*>/i.test(trimmed)) {
-    return trimmed;
+  if (/<[a-z][\s\S]*>/i.test(decoded)) {
+    return decoded;
   }
 
   // Plain text fallback: split on double newlines into paragraphs,
   // single newlines become <br> inside each paragraph
-  const paragraphs = trimmed.split(/\n\s*\n/).filter(Boolean);
+  const paragraphs = decoded.split(/\n\s*\n/).filter(Boolean);
   return paragraphs
     .map((p) => {
       const withBreaks = escapeHtml(p).replace(/\n/g, "<br>");
