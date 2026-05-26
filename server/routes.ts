@@ -106,8 +106,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get(api.songs.list.path, async (req, res) => {
     const search = req.query.search as string | undefined;
     const activeOnly = req.query.activeOnly !== 'false';
-    const songs = await storage.getSongs(search, activeOnly);
+    const group = req.query.group as string | undefined;
+    const songs = await storage.getSongs(search, activeOnly, group);
     res.json(songs);
+  });
+
+  app.get("/api/songs/groups", isBandAuthed, async (req, res) => {
+    res.json(await storage.getSongGroups());
+  });
+
+  app.patch("/api/songs/groups/:group/toggle", isBandAuthed, async (req, res) => {
+    const group = String(req.params.group);
+    const { isActive } = req.body as { isActive: boolean };
+    const updated = await storage.toggleGroupActive(group, isActive);
+    res.json({ updated });
   });
 
   // Strip Spotify version suffixes from song titles (e.g. "- 2013 Remaster", "- Remastered", "- Live at...")

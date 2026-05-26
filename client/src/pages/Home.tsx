@@ -23,6 +23,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [artistFilter, setArtistFilter] = useState("all");
   const [genreFilter, setGenreFilter] = useState("all");
+  const [groupFilter, setGroupFilter] = useState("all");
   const [selectedSongs, setSelectedSongs] = useState<Song[]>([]);
   const [participantName, setParticipantName] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
@@ -68,6 +69,12 @@ export default function Home() {
     return Array.from(set).sort();
   }, [allSongs]);
 
+  const groups = useMemo(() => {
+    if (!allSongs) return [];
+    const set = new Set(allSongs.map(s => s.group).filter(Boolean) as string[]);
+    return Array.from(set).sort();
+  }, [allSongs]);
+
   const songs = useMemo(() => {
     if (!allSongs) return [];
     const q = search.toLowerCase();
@@ -75,9 +82,10 @@ export default function Home() {
       const matchSearch = !q || s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q);
       const matchArtist = artistFilter === "all" || s.artist === artistFilter;
       const matchGenre = genreFilter === "all" || s.genre === genreFilter;
-      return matchSearch && matchArtist && matchGenre;
+      const matchGroup = groupFilter === "all" || s.group === groupFilter;
+      return matchSearch && matchArtist && matchGenre && matchGroup;
     });
-  }, [allSongs, search, artistFilter, genreFilter]);
+  }, [allSongs, search, artistFilter, genreFilter, groupFilter]);
   const { mutate: submitRequest, isPending: isSubmitting } = useCreateRequest();
   const { data: guitarMode } = useSettings("guitar_mode");
   const { data: guitarInstructions } = useSettings("guitar_instructions");
@@ -152,7 +160,7 @@ export default function Home() {
       return;
     }
     const positionBeforeSubmit = queueInfo?.queueLength ?? 0;
-    submitRequest({ participantName, songIds: selectedSongs.map(s => s.id) }, {
+    submitRequest({ participantName, songIds: selectedSongs.map(s => s.id), isPresignup: false }, {
       onSuccess: () => {
         setSubmittedQueuePosition(positionBeforeSubmit);
         setShowConfirm(false);
@@ -347,7 +355,7 @@ export default function Home() {
                 data-testid="input-song-search"
               />
             </div>
-            {(artists.length > 0 || genres.length > 0) && (
+            {(artists.length > 0 || genres.length > 0 || groups.length > 0) && (
               <div className="grid grid-cols-2 gap-2">
                 <select
                   value={artistFilter}
@@ -367,6 +375,17 @@ export default function Home() {
                   <option value="all">All Genres</option>
                   {genres.map(g => <option key={g} value={g!}>{g}</option>)}
                 </select>
+                {groups.length > 0 && (
+                  <select
+                    value={groupFilter}
+                    onChange={e => setGroupFilter(e.target.value)}
+                    data-testid="select-group-filter"
+                    className="col-span-2 w-full h-9 px-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
+                  >
+                    <option value="all">All Groups</option>
+                    {groups.map(g => <option key={g} value={g!}>{g}</option>)}
+                  </select>
+                )}
               </div>
             )}
           </div>
@@ -390,9 +409,9 @@ export default function Home() {
         ) : (
           <div className="text-center py-12 text-muted-foreground">
             <Music2 className="w-12 h-12 mx-auto mb-4 opacity-20" />
-            <p>No songs found{search || artistFilter !== "all" || genreFilter !== "all" ? " — try clearing filters" : ""}</p>
-            {(search || artistFilter !== "all" || genreFilter !== "all") && (
-              <button onClick={() => { setSearch(""); setArtistFilter("all"); setGenreFilter("all"); }} className="mt-2 text-sm text-primary underline underline-offset-4">Clear filters</button>
+            <p>No songs found{search || artistFilter !== "all" || genreFilter !== "all" || groupFilter !== "all" ? " — try clearing filters" : ""}</p>
+            {(search || artistFilter !== "all" || genreFilter !== "all" || groupFilter !== "all") && (
+              <button onClick={() => { setSearch(""); setArtistFilter("all"); setGenreFilter("all"); setGroupFilter("all"); }} className="mt-2 text-sm text-primary underline underline-offset-4">Clear filters</button>
             )}
           </div>
         )}

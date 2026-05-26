@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useRequests, useUpdateRequestStatus, useRemoveRequestSong } from "@/hooks/use-requests";
-import { useSongs, useDeleteSong, useDeleteSongs, useToggleSong } from "@/hooks/use-songs";
+import { useSongs, useDeleteSong, useDeleteSongs, useToggleSong, useSongGroups, useToggleGroupActive } from "@/hooks/use-songs";
 import { useSettings, useUpdateSetting } from "@/hooks/use-settings";
 import { useGuestMusicians, useUpdateGuestStatus, useDeleteGuest, useClearCompletedGuests } from "@/hooks/use-guest-musicians";
 import { useActiveTrivia, useCreateTriviaSession, useUpdateTriviaStatus, useAdvanceTriviaQuestion, useDeleteAllTrivia } from "@/hooks/use-trivia";
@@ -18,7 +18,8 @@ import {
   Music, Clock, Check, X, LogOut, Loader2, Trash2, Guitar, Eye, EyeOff,
   Settings as SettingsIcon, QrCode, FileUp, DollarSign, Trophy, Play,
   ChevronRight, SkipForward, Users, Sparkles, ListMusic, Upload, CalendarCheck,
-  Timer, Hash, Lock, Briefcase, Mail, Phone, MapPin, Calendar, Plus, Link2, ImageIcon
+  Timer, Hash, Lock, Briefcase, Mail, Phone, MapPin, Calendar, Plus, Link2, ImageIcon,
+  Tags
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -474,14 +475,18 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
 // ─── Songs Manager ─────────────────────────────────────────────────────────────
 function SongsManager() {
   const { data: songs, isLoading } = useSongs(undefined, false);
+  const { data: groups } = useSongGroups();
   const { mutate: deleteSong } = useDeleteSong();
   const { mutate: deleteSongs, isPending: isBulkDeleting } = useDeleteSongs();
   const { mutate: toggleSong } = useToggleSong();
+  const { mutate: toggleGroupActive, isPending: isTogglingGroup } = useToggleGroupActive();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [search, setSearch] = useState("");
+  const [groupFilter, setGroupFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [subTab, setSubTab] = useState<"list" | "groups">("list");
 
   const handleDelete = (id: number) => {
     if (confirm("Delete this song?")) {
@@ -509,6 +514,15 @@ function SongsManager() {
     toggleSong(id, { onSuccess: () => toast({ title: "Visibility updated" }) });
   };
 
+  const handleGroupToggle = (group: string, makeActive: boolean) => {
+    toggleGroupActive({ group, isActive: makeActive }, {
+      onSuccess: (data) => {
+        toast({ title: `${makeActive ? "Shown" : "Hidden"} ${data.updated} songs in "${group}"` });
+      },
+      onError: (err: any) => toast({ title: "Group toggle failed", description: err?.message, variant: "destructive" }),
+    });
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -521,28 +535,22 @@ function SongsManager() {
           let rows = (results.data as string[][]).filter(r => r && r.length > 0);
           const first = rows[0]?.map(c => String(c || "").toLowerCase().trim()) || [];
 
-          // Detect Exportify format (has "track name" and "artist name(s)" or "spotify id" headers)
           const isExportify = first.some(c => c === "track name") && first.some(c => c.includes("artist name"));
-          // Detect standard header row
           const hasStandardHeader = !isExportify && first.some(c => c === "title" || c === "song" || c === "artist" || c === "name");
 
           const parsed: { title: string; artist: string; genre: string; spotifyUrl: string }[] = [];
 
           if (isExportify) {
-            // Exportify format: Spotify ID/URI, Artist Name(s), Track Name, Album Name, ..., Genres, ...
             const idxTrack = first.findIndex(c => c === "track name");
             const idxArtist = first.findIndex(c => c.includes("artist name"));
             const idxGenre = first.findIndex(c => c === "genres");
-            // Spotify column may be "Spotify ID", "Spotify URI", "Track URI", "Spotify URL" — match any
             const idxSpotifyId = first.findIndex(c => c.startsWith("spotify") || c === "track uri" || c === "uri");
             for (const row of rows.slice(1)) {
               const title = String(row[idxTrack] || "").trim();
               const artist = String(row[idxArtist] || "").trim();
               const genre = idxGenre >= 0 ? String(row[idxGenre] || "").trim() : "";
               let rawSpotify = idxSpotifyId >= 0 ? String(row[idxSpotifyId] || "").trim() : "";
-              // Handle spotify:track:XXXX URI format — extract just the ID
               if (rawSpotify.startsWith("spotify:track:")) rawSpotify = rawSpotify.replace("spotify:track:", "");
-              // Handle full URL format — extract track ID
               const trackMatch = rawSpotify.match(/track\/([a-zA-Z0-9]+)/);
               if (trackMatch) rawSpotify = trackMatch[1];
               const spotifyUrl = rawSpotify && !rawSpotify.includes(":") ? `https://open.spotify.com/track/${rawSpotify}` : "";
@@ -552,14 +560,12 @@ function SongsManager() {
             if (hasStandardHeader) rows = rows.slice(1);
             for (const row of rows) {
               let title = "", artist = "", genre = "", spotifyUrl = "";
-              // Multi-column format: title, artist, [genre, spotifyUrl]
               if (row.length >= 2 && String(row[0] || "").trim() && String(row[1] || "").trim()) {
                 title = String(row[0]).trim();
                 artist = String(row[1]).trim();
                 genre = String(row[2] || "").trim();
                 spotifyUrl = String(row[3] || "").trim();
               } else {
-                // Single-column "Song - Artist" format
                 const cell = String(row[0] || "").trim();
                 const idx = cell.lastIndexOf(" - ");
                 if (idx > 0) { title = cell.slice(0, idx).trim(); artist = cell.slice(idx + 3).trim(); }
@@ -590,7 +596,12 @@ function SongsManager() {
     });
   };
 
-  const filtered = songs?.filter(s => !search || s.title.toLowerCase().includes(search.toLowerCase()) || s.artist.toLowerCase().includes(search.toLowerCase())) || [];
+  const filtered = songs?.filter(s => {
+    const matchesSearch = !search || s.title.toLowerCase().includes(search.toLowerCase()) || s.artist.toLowerCase().includes(search.toLowerCase());
+    const matchesGroup = groupFilter === "all" || (s.group || "Ungrouped") === groupFilter;
+    return matchesSearch && matchesGroup;
+  }) || [];
+
   const allSelected = filtered.length > 0 && filtered.every(s => selected.has(s.id));
   const toggleAll = () => {
     setSelected(prev => {
@@ -602,6 +613,59 @@ function SongsManager() {
     setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
 
+  // ─── Groups Sub-Tab ─────────────────────────────────────────────────────────
+  if (subTab === "groups") {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-3 justify-between items-center bg-white/5 p-4 rounded-xl border border-white/10">
+          <div>
+            <h2 className="text-xl font-display font-bold">Song Groups</h2>
+            <p className="text-sm text-muted-foreground">Toggle visibility for entire groups at once</p>
+          </div>
+          <NeonButton variant="outline" size="sm" onClick={() => setSubTab("list")}>
+            <ListMusic className="w-4 h-4 mr-1.5" /> Back to Songs
+          </NeonButton>
+        </div>
+        {groups && groups.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {groups.map(g => (
+              <div key={g.group} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-bold text-lg">{g.group}</h3>
+                  <span className="text-xs text-muted-foreground">{g.count} songs</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className={g.activeCount === g.count ? "text-green-400" : g.activeCount === 0 ? "text-red-400" : "text-yellow-400"}>
+                    {g.activeCount} / {g.count} visible
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {g.activeCount < g.count && (
+                      <NeonButton size="sm" variant="ghost" onClick={() => handleGroupToggle(g.group, true)} isLoading={isTogglingGroup}>
+                        <Eye className="w-4 h-4 mr-1" /> Show All
+                      </NeonButton>
+                    )}
+                    {g.activeCount > 0 && (
+                      <NeonButton size="sm" variant="ghost" onClick={() => handleGroupToggle(g.group, false)} isLoading={isTogglingGroup}>
+                        <EyeOff className="w-4 h-4 mr-1" /> Hide All
+                      </NeonButton>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 border border-dashed border-white/10 rounded-2xl bg-white/5">
+            <Tags className="w-10 h-10 mx-auto mb-3 text-white/20" />
+            <p className="text-muted-foreground">No groups yet</p>
+            <p className="text-xs text-muted-foreground mt-1">Assign a group when adding a song or editing one</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── List Sub-Tab (default) ─────────────────────────────────────────────────
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3 justify-between items-center bg-white/5 p-4 rounded-xl border border-white/10">
@@ -610,6 +674,11 @@ function SongsManager() {
           <p className="text-sm text-muted-foreground">{songs?.length || 0} songs · {songs?.filter(s => s.isActive).length || 0} visible</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {groups && groups.length > 1 && (
+            <NeonButton variant="outline" size="sm" onClick={() => setSubTab("groups")}>
+              <Tags className="w-4 h-4 mr-1.5" /> Groups
+            </NeonButton>
+          )}
           {selected.size > 0 && (
             <NeonButton variant="outline" size="sm" onClick={handleBulkDelete} isLoading={isBulkDeleting} className="text-red-400 border-red-500/40 hover:bg-red-950/30" data-testid="button-bulk-delete-songs">
               <Trash2 className="w-4 h-4 mr-1.5" /> Delete {selected.size}
@@ -623,8 +692,21 @@ function SongsManager() {
         </div>
       </div>
       <p className="text-xs text-muted-foreground -mt-2">CSV formats accepted: <code className="text-white/70">Song - Artist</code> per line · <code className="text-white/70">title,artist,genre,spotifyUrl</code> columns · or <strong className="text-green-400">Exportify</strong> exports (auto-detected)</p>
-      <div className="relative">
-        <Input placeholder="Search songs..." value={search} onChange={e => setSearch(e.target.value)} className="bg-white/5 border-white/10 pl-4" />
+      <div className="flex flex-wrap gap-2">
+        <div className="flex-1 min-w-[200px] relative">
+          <Input placeholder="Search songs..." value={search} onChange={e => setSearch(e.target.value)} className="bg-white/5 border-white/10 pl-4" />
+        </div>
+        {groups && groups.length > 1 && (
+          <select
+            value={groupFilter}
+            onChange={e => { setGroupFilter(e.target.value); setSelected(new Set()); }}
+            className="h-9 px-3 bg-white/5 border border-white/10 rounded-lg text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
+            data-testid="select-dashboard-group-filter"
+          >
+            <option value="all">All Groups</option>
+            {groups.map(g => <option key={g.group} value={g.group}>{g.group} ({g.count})</option>)}
+          </select>
+        )}
       </div>
       <ScrollArea className="h-[560px] rounded-xl border border-white/10 bg-black/20">
         {isLoading ? (
@@ -639,6 +721,7 @@ function SongsManager() {
                 <th className="px-4 py-3 w-8"></th>
                 <th className="px-4 py-3">Title</th>
                 <th className="px-4 py-3">Artist</th>
+                <th className="px-4 py-3 hidden md:table-cell">Group</th>
                 <th className="px-4 py-3 hidden md:table-cell">Genre</th>
                 <th className="px-4 py-3 hidden md:table-cell">Spotify</th>
                 <th className="px-4 py-3 text-right">Actions</th>
@@ -657,6 +740,9 @@ function SongsManager() {
                   </td>
                   <td className="px-4 py-3 font-medium">{song.title}</td>
                   <td className="px-4 py-3 text-muted-foreground">{song.artist}</td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    {song.group && <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs border border-primary/20">{song.group}</span>}
+                  </td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     {song.genre && <span className="px-2 py-1 rounded-full bg-white/10 text-xs">{song.genre}</span>}
                   </td>
@@ -694,7 +780,7 @@ function GuestMusicianManager() {
   };
 
   const handleDismiss = (id: number) => {
-    setDismissed(prev => new Set([...prev, id]));
+    setDismissed(prev => new Set(Array.from(prev).concat([id])));
     setTimeout(() => { deleteGuest(id); }, 300);
   };
 

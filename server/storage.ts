@@ -14,7 +14,7 @@ import { eq, ilike, desc, asc, inArray, and, lt } from "drizzle-orm";
 import { IAuthStorage } from "./replit_integrations/auth/storage";
 
 export interface IStorage extends IAuthStorage {
-  getSongs(search?: string, activeOnly?: boolean): Promise<Song[]>;
+  getSongs(search?: string, activeOnly?: boolean, group?: string): Promise<Song[]>;
   getSong(id: number): Promise<Song | undefined>;
   createSong(song: InsertSong): Promise<Song>;
   updateSong(id: number, updates: UpdateSongRequest): Promise<Song>;
@@ -23,6 +23,8 @@ export interface IStorage extends IAuthStorage {
   toggleSongActive(id: number): Promise<Song>;
   getSongBySpotifyUrl(spotifyUrl: string): Promise<Song | undefined>;
   getSongByTitleArtist(title: string, artist: string): Promise<Song | undefined>;
+  getSongGroups(): Promise<{ group: string; count: number; activeCount: number }[]>;
+  toggleGroupActive(group: string, isActive: boolean): Promise<number>;
 
   getRequests(status?: string): Promise<RequestWithSongs[]>;
   createRequest(input: CreateRequestInput): Promise<RequestWithSongs>;
@@ -75,9 +77,17 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getSongs(search?: string, activeOnly: boolean = true): Promise<Song[]> {
+  async getSongs(search?: string, activeOnly: boolean = true, group?: string): Promise<Song[]> {
     let query = db.select().from(songs);
-    if (activeOnly) query = query.where(eq(songs.isActive, true)) as any;
+    if (activeOnly) {
+      if (group) {
+        query = query.where(and(eq(songs.isActive, true), eq(songs.group, group))) as any;
+      } else {
+        query = query.where(eq(songs.isActive, true)) as any;
+      }
+    } else if (group) {
+      query = query.where(eq(songs.group, group)) as any;
+    }
     const results = await query.orderBy(asc(songs.title));
     if (search) {
       const lower = search.toLowerCase();
@@ -130,6 +140,29 @@ export class DatabaseStorage implements IStorage {
     const [song] = await db.select().from(songs).where(eq(songs.id, id));
     const [updated] = await db.update(songs).set({ isActive: !song.isActive }).where(eq(songs.id, id)).returning();
     return updated;
+  }
+
+  async getSongGroups(): Promise<{ group: string; count: number; activeCount: number }[]> {
+    const all = await db.select().from(songs);
+    const grouped = new Map<string, { count: number; activeCount: number }>();
+    for (const song of all) {
+      const g = song.group || "Ungrouped";
+      const existing = grouped.get(g) || { count: 0, activeCount: 0 };
+      existing.count++;
+      if (song.isActive) existing.activeCount++;
+      grouped.set(g, existing);
+    }
+    return Array.from(grouped.entries())
+      .map(([group, stats]) => ({ group, count: stats.count, activeCount: stats.activeCount }))
+      .sort((a, b) => a.group.localeCompare(b.group));
+  }
+
+  async toggleGroupActive(group: string, isActive: boolean): Promise<number> {
+    const match = group === "Ungrouped" ? null : group;
+    const result = await db.update(songs).set({ isActive }).where(
+      match === null ? eq(songs.group, "" as any) : eq(songs.group, match)
+    ).returning();
+    return result.length;
   }
 
   async getRequests(status?: string): Promise<RequestWithSongs[]> {

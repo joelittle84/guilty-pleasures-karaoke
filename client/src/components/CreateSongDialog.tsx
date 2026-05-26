@@ -17,6 +17,7 @@ export function CreateSongDialog() {
     title: "",
     artist: "",
     genre: "",
+    group: "",
     spotifyUrl: "",
   });
 
@@ -27,7 +28,7 @@ export function CreateSongDialog() {
     createSong(formData, {
       onSuccess: () => {
         setOpen(false);
-        setFormData({ title: "", artist: "", genre: "", spotifyUrl: "" });
+        setFormData({ title: "", artist: "", genre: "", group: "", spotifyUrl: "" });
         toast({ title: "Song Added", description: `${formData.title} added to the catalog.` });
       },
       onError: (err) => {
@@ -83,15 +84,25 @@ export function CreateSongDialog() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="spotify">Spotify URL (Optional)</Label>
+              <Label htmlFor="group">Group/Label (Optional)</Label>
               <Input 
-                id="spotify" 
-                value={formData.spotifyUrl}
-                onChange={e => setFormData(prev => ({ ...prev, spotifyUrl: e.target.value }))}
-                placeholder="https://..."
+                id="group" 
+                value={formData.group}
+                onChange={e => setFormData(prev => ({ ...prev, group: e.target.value }))}
+                placeholder="e.g. Disney Duo"
                 className="bg-black/20 border-white/10 focus:border-primary/50"
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="spotify">Spotify URL (Optional)</Label>
+            <Input 
+              id="spotify" 
+              value={formData.spotifyUrl}
+              onChange={e => setFormData(prev => ({ ...prev, spotifyUrl: e.target.value }))}
+              placeholder="https://..."
+              className="bg-black/20 border-white/10 focus:border-primary/50"
+            />
           </div>
           
           <div className="pt-4 flex justify-end gap-2">

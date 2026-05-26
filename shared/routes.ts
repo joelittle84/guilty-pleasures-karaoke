@@ -22,6 +22,7 @@ export const api = {
       input: z.object({
         search: z.string().optional(),
         activeOnly: z.boolean().optional(),
+        group: z.string().optional(),
       }).optional(),
       responses: {
         200: z.array(z.custom<typeof songs.$inferSelect>()),

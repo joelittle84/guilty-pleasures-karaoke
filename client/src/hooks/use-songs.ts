@@ -1,15 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl, type InsertSong, type Song } from "@shared/routes";
+import { api, buildUrl } from "@shared/routes";
+import { type InsertSong, type Song } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
 // GET /api/songs
-export function useSongs(search?: string, activeOnly: boolean = true) {
+export function useSongs(search?: string, activeOnly: boolean = true, group?: string) {
   return useQuery({
-    queryKey: [api.songs.list.path, { search, activeOnly }],
+    queryKey: [api.songs.list.path, { search, activeOnly, group }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (!activeOnly) params.set("activeOnly", "false");
+      if (group && group !== "all") params.set("group", group);
       const url = params.toString() ? `${api.songs.list.path}?${params}` : api.songs.list.path;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch songs");
@@ -77,6 +79,34 @@ export function useToggleSong() {
       return res.json() as Promise<Song>;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.songs.list.path] });
+    },
+  });
+}
+
+// GET /api/songs/groups (protected)
+export function useSongGroups() {
+  return useQuery({
+    queryKey: ["/api/songs/groups"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/songs/groups");
+      if (!res.ok) throw new Error("Failed to fetch groups");
+      return res.json() as Promise<{ group: string; count: number; activeCount: number }[]>;
+    },
+  });
+}
+
+// PATCH /api/songs/groups/:group/toggle (protected)
+export function useToggleGroupActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ group, isActive }: { group: string; isActive: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/songs/groups/${encodeURIComponent(group)}/toggle`, { isActive });
+      if (!res.ok) throw new Error("Failed to toggle group");
+      return res.json() as Promise<{ updated: number }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/songs/groups"] });
       queryClient.invalidateQueries({ queryKey: [api.songs.list.path] });
     },
   });

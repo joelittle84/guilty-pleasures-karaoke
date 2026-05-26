@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl, type CreateRequestInput, type UpdateRequestStatusInput } from "@shared/routes";
+import { api, buildUrl } from "@shared/routes";
+import { type CreateRequestInput, type UpdateRequestStatusInput } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
 // GET /api/requests (Protected)
