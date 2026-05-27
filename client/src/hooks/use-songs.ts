@@ -70,6 +70,22 @@ export function useDeleteSongs() {
   });
 }
 
+// PATCH /api/songs/:id
+export function useUpdateSong() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<InsertSong> }) => {
+      const res = await apiRequest("PATCH", `/api/songs/${id}`, data);
+      if (!res.ok) throw new Error("Failed to update song");
+      return res.json() as Promise<Song>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.songs.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/songs/groups"] });
+    },
+  });
+}
+
 // PATCH /api/songs/:id/toggle
 export function useToggleSong() {
   const queryClient = useQueryClient();

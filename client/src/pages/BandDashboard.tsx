@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useRequests, useUpdateRequestStatus, useRemoveRequestSong } from "@/hooks/use-requests";
-import { useSongs, useDeleteSong, useDeleteSongs, useToggleSong, useSongGroups, useToggleGroupActive } from "@/hooks/use-songs";
+import { useSongs, useDeleteSong, useDeleteSongs, useToggleSong, useSongGroups, useToggleGroupActive, useUpdateSong } from "@/hooks/use-songs";
 import { useSettings, useUpdateSetting } from "@/hooks/use-settings";
 import { useGuestMusicians, useUpdateGuestStatus, useDeleteGuest, useClearCompletedGuests } from "@/hooks/use-guest-musicians";
 import { useActiveTrivia, useCreateTriviaSession, useUpdateTriviaStatus, useAdvanceTriviaQuestion, useDeleteAllTrivia } from "@/hooks/use-trivia";
@@ -19,7 +19,7 @@ import {
   Settings as SettingsIcon, QrCode, FileUp, DollarSign, Trophy, Play,
   ChevronRight, SkipForward, Users, Sparkles, ListMusic, Upload, CalendarCheck,
   Timer, Hash, Lock, Briefcase, Mail, Phone, MapPin, Calendar, Plus, Link2, ImageIcon,
-  Tags
+  Tags, Pencil
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -480,6 +480,7 @@ function SongsManager() {
   const { mutate: deleteSongs, isPending: isBulkDeleting } = useDeleteSongs();
   const { mutate: toggleSong } = useToggleSong();
   const { mutate: toggleGroupActive, isPending: isTogglingGroup } = useToggleGroupActive();
+  const { mutate: updateSong, isPending: isUpdating } = useUpdateSong();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -487,6 +488,9 @@ function SongsManager() {
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [subTab, setSubTab] = useState<"list" | "groups">("list");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editGroup, setEditGroup] = useState("");
+  const [editGenre, setEditGenre] = useState("");
 
   const handleDelete = (id: number) => {
     if (confirm("Delete this song?")) {
@@ -674,7 +678,7 @@ function SongsManager() {
           <p className="text-sm text-muted-foreground">{songs?.length || 0} songs · {songs?.filter(s => s.isActive).length || 0} visible</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {groups && groups.length > 1 && (
+          {groups && groups.length > 0 && (
             <NeonButton variant="outline" size="sm" onClick={() => setSubTab("groups")}>
               <Tags className="w-4 h-4 mr-1.5" /> Groups
             </NeonButton>
@@ -696,7 +700,7 @@ function SongsManager() {
         <div className="flex-1 min-w-[200px] relative">
           <Input placeholder="Search songs..." value={search} onChange={e => setSearch(e.target.value)} className="bg-white/5 border-white/10 pl-4" />
         </div>
-        {groups && groups.length > 1 && (
+        {groups && groups.length > 0 && (
           <select
             value={groupFilter}
             onChange={e => { setGroupFilter(e.target.value); setSelected(new Set()); }}
@@ -741,7 +745,44 @@ function SongsManager() {
                   <td className="px-4 py-3 font-medium">{song.title}</td>
                   <td className="px-4 py-3 text-muted-foreground">{song.artist}</td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    {song.group && <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs border border-primary/20">{song.group}</span>}
+                    {editingId === song.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={editGroup}
+                          onChange={e => setEditGroup(e.target.value)}
+                          className="bg-white/10 border border-white/20 rounded text-xs px-2 py-1 text-white/90"
+                        >
+                          <option value="">—</option>
+                          {groups?.map(g => <option key={g.group} value={g.group}>{g.group}</option>)}
+                        </select>
+                        <button
+                          onClick={() => {
+                            updateSong({ id: song.id, data: { group: editGroup || null } });
+                            setEditingId(null);
+                          }}
+                          className="text-green-400 hover:text-green-300 text-xs"
+                          disabled={isUpdating}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-white text-xs">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setEditingId(song.id); setEditGroup(song.group || ""); }}
+                        className="inline-flex items-center gap-1 group cursor-pointer"
+                        disabled={isUpdating}
+                      >
+                        {song.group ? (
+                          <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs border border-primary/20 group-hover:bg-primary/20 transition-colors">{song.group}</span>
+                        ) : (
+                          <span className="text-white/20 text-xs group-hover:text-white/60 transition-colors">—</span>
+                        )}
+                        <Pencil className="w-3 h-3 text-white/0 group-hover:text-white/40 transition-colors" />
+                      </button>
+                    )}
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     {song.genre && <span className="px-2 py-1 rounded-full bg-white/10 text-xs">{song.genre}</span>}
