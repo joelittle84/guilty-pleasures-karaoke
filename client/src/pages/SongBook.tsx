@@ -101,14 +101,6 @@ export default function SongBook() {
                         {song.title}
                       </span>
                     </div>
-                    {song.genre && (
-                      <span className={cn(
-                        "shrink-0 text-[9px] uppercase tracking-wider px-1 py-0.5 rounded font-semibold",
-                        "bg-white/10 text-white/50"
-                      )}>
-                        {song.genre}
-                      </span>
-                    )}
                     {song.spotifyUrl && (
                       <a
                         href={song.spotifyUrl}
