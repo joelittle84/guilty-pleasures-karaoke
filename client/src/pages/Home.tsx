@@ -23,7 +23,6 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [artistFilter, setArtistFilter] = useState("all");
   const [genreFilter, setGenreFilter] = useState("all");
-  const [groupFilter, setGroupFilter] = useState("all");
   const [selectedSongs, setSelectedSongs] = useState<Song[]>([]);
   const [participantName, setParticipantName] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
@@ -69,12 +68,6 @@ export default function Home() {
     return Array.from(set).sort();
   }, [allSongs]);
 
-  const groups = useMemo(() => {
-    if (!allSongs) return [];
-    const set = new Set(allSongs.map(s => s.group).filter(Boolean) as string[]);
-    return Array.from(set).sort();
-  }, [allSongs]);
-
   const songs = useMemo(() => {
     if (!allSongs) return [];
     const q = search.toLowerCase();
@@ -82,10 +75,9 @@ export default function Home() {
       const matchSearch = !q || s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q);
       const matchArtist = artistFilter === "all" || s.artist === artistFilter;
       const matchGenre = genreFilter === "all" || s.genre === genreFilter;
-      const matchGroup = groupFilter === "all" || s.group === groupFilter;
-      return matchSearch && matchArtist && matchGenre && matchGroup;
+      return matchSearch && matchArtist && matchGenre;
     });
-  }, [allSongs, search, artistFilter, genreFilter, groupFilter]);
+  }, [allSongs, search, artistFilter, genreFilter]);
   const { mutate: submitRequest, isPending: isSubmitting } = useCreateRequest();
   const { data: guitarMode } = useSettings("guitar_mode");
   const { data: guitarInstructions } = useSettings("guitar_instructions");
@@ -93,6 +85,7 @@ export default function Home() {
   const { data: businessInfo } = useSettings("business_info");
   const { data: logoUrl } = useSettings("logo_url");
   const { data: logoSize } = useSettings("logo_size");
+  const { data: logoSpacing } = useSettings("logo_spacing");
   const { data: artworkUrl } = useSettings("hero_artwork_url");
   const { data: signupsEnabledSetting } = useSettings("signups_enabled");
   const signupsOpen = signupsEnabledSetting?.value !== "false";
@@ -258,10 +251,13 @@ export default function Home() {
             {(() => {
               if (logoUrl?.value) {
                 const s = logoSize?.value || "medium";
-                let logoClass = "h-24 md:h-32 mx-auto mb-4 drop-shadow-xl";
-                if (s === "small") logoClass = "h-16 md:h-20 mx-auto mb-4 drop-shadow-xl";
-                else if (s === "large") logoClass = "h-32 md:h-48 mx-auto mb-4 drop-shadow-xl";
-                else if (s === "full") logoClass = "w-full max-w-md mx-auto mb-4 drop-shadow-xl";
+                const sp = logoSpacing?.value || "medium";
+                const spacingMap: Record<string, string> = { none: "mb-0", small: "mb-1", medium: "mb-4", large: "mb-8" };
+                const spClass = spacingMap[sp] || "mb-4";
+                let logoClass = `h-24 md:h-32 mx-auto ${spClass} drop-shadow-xl`;
+                if (s === "small") logoClass = `h-16 md:h-20 mx-auto ${spClass} drop-shadow-xl`;
+                else if (s === "large") logoClass = `h-32 md:h-48 mx-auto ${spClass} drop-shadow-xl`;
+                else if (s === "full") logoClass = `w-full max-w-md mx-auto ${spClass} drop-shadow-xl`;
                 return <img src={logoUrl.value} className={logoClass} alt="Logo" />;
               }
               if (businessName?.value) {
@@ -355,7 +351,7 @@ export default function Home() {
                 data-testid="input-song-search"
               />
             </div>
-            {(artists.length > 0 || genres.length > 0 || groups.length > 0) && (
+            {(artists.length > 0 || genres.length > 0) && (
               <div className="grid grid-cols-2 gap-2">
                 <select
                   value={artistFilter}
@@ -375,17 +371,6 @@ export default function Home() {
                   <option value="all">All Genres</option>
                   {genres.map(g => <option key={g} value={g!}>{g}</option>)}
                 </select>
-                {groups.length > 0 && (
-                  <select
-                    value={groupFilter}
-                    onChange={e => setGroupFilter(e.target.value)}
-                    data-testid="select-group-filter"
-                    className="col-span-2 w-full h-9 px-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
-                  >
-                    <option value="all">All Groups</option>
-                    {groups.map(g => <option key={g} value={g!}>{g}</option>)}
-                  </select>
-                )}
               </div>
             )}
           </div>
@@ -409,9 +394,9 @@ export default function Home() {
         ) : (
           <div className="text-center py-12 text-muted-foreground">
             <Music2 className="w-12 h-12 mx-auto mb-4 opacity-20" />
-            <p>No songs found{search || artistFilter !== "all" || genreFilter !== "all" || groupFilter !== "all" ? " — try clearing filters" : ""}</p>
-            {(search || artistFilter !== "all" || genreFilter !== "all" || groupFilter !== "all") && (
-              <button onClick={() => { setSearch(""); setArtistFilter("all"); setGenreFilter("all"); setGroupFilter("all"); }} className="mt-2 text-sm text-primary underline underline-offset-4">Clear filters</button>
+            <p>No songs found{search || artistFilter !== "all" || genreFilter !== "all" ? " — try clearing filters" : ""}</p>
+            {(search || artistFilter !== "all" || genreFilter !== "all") && (
+              <button onClick={() => { setSearch(""); setArtistFilter("all"); setGenreFilter("all"); }} className="mt-2 text-sm text-primary underline underline-offset-4">Clear filters</button>
             )}
           </div>
         )}

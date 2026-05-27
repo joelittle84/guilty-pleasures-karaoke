@@ -217,6 +217,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const { data: businessInfo } = useSettings("business_info");
   const { data: logoUrl } = useSettings("logo_url");
   const { data: logoSizeSetting } = useSettings("logo_size");
+  const { data: logoSpacingSetting } = useSettings("logo_spacing");
   const { data: artworkUrl } = useSettings("hero_artwork_url");
   const { data: signupsEnabledSetting } = useSettings("signups_enabled");
   const { mutate: updateSetting, mutateAsync: updateSettingAsync, isPending: isSaving } = useUpdateSetting();
@@ -227,6 +228,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const [info, setInfo] = useState("");
   const [logo, setLogo] = useState("");
   const [logoSize, setLogoSize] = useState("medium");
+  const [logoSpacing, setLogoSpacing] = useState("medium");
   const [artwork, setArtwork] = useState("");
   const [venmo, setVenmo] = useState("");
   const [zelle, setZelle] = useState("");
@@ -237,6 +239,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   useEffect(() => { if (businessInfo?.value) setInfo(businessInfo.value); }, [businessInfo]);
   useEffect(() => { if (logoUrl?.value) setLogo(logoUrl.value); }, [logoUrl]);
   useEffect(() => { if (logoSizeSetting?.value) setLogoSize(logoSizeSetting.value); }, [logoSizeSetting]);
+  useEffect(() => { if (logoSpacingSetting?.value) setLogoSpacing(logoSpacingSetting.value); }, [logoSpacingSetting]);
   useEffect(() => { if (artworkUrl?.value) setArtwork(artworkUrl.value); }, [artworkUrl]);
 
   const toggleGuitarMode = () => {
@@ -252,6 +255,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
       await updateSettingAsync({ key: "business_info", value: info });
       await updateSettingAsync({ key: "logo_url", value: logo });
       await updateSettingAsync({ key: "logo_size", value: logoSize });
+      await updateSettingAsync({ key: "logo_spacing", value: logoSpacing });
       await updateSettingAsync({ key: "hero_artwork_url", value: artwork });
       toast({ title: "Branding saved" });
     } catch {
@@ -360,14 +364,26 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
           <div className="space-y-2"><label className="text-sm font-medium">Business / Project Name</label><Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Neon Nights Karaoke" className="bg-black/40 border-white/10" /></div>
           <div className="space-y-2"><label className="text-sm font-medium">Tagline / Info</label><Input value={info} onChange={e => setInfo(e.target.value)} placeholder="e.g. The premier live band experience" className="bg-black/40 border-white/10" /></div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Logo Size</label>
-            <select value={logoSize} onChange={e => setLogoSize(e.target.value)} className="w-full h-9 px-3 bg-black/40 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50">
-              <option value="small">Small</option>
-              <option value="medium">Medium</option>
-              <option value="large">Large</option>
-              <option value="full">Full Width</option>
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Logo Size</label>
+              <select value={logoSize} onChange={e => setLogoSize(e.target.value)} className="w-full h-9 px-3 bg-black/40 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50">
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+                <option value="full">Full Width</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Logo Spacing</label>
+              <select value={logoSpacing} onChange={e => setLogoSpacing(e.target.value)} className="w-full h-9 px-3 bg-black/40 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50">
+                <option value="none">None (tight)</option>
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+              <p className="text-xs text-muted-foreground">Space between logo and tagline</p>
+            </div>
           </div>
 
           {/* Logo upload */}
