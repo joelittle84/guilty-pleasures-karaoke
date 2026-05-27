@@ -1,12 +1,13 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useRequests, useUpdateRequestStatus, useRemoveRequestSong } from "@/hooks/use-requests";
 import { useSongs, useDeleteSong, useDeleteSongs, useToggleSong, useSongGroups, useToggleGroupActive, useUpdateSong } from "@/hooks/use-songs";
+import { type Song } from "@shared/schema";
 import { useSettings, useUpdateSetting } from "@/hooks/use-settings";
 import { useGuestMusicians, useUpdateGuestStatus, useDeleteGuest, useClearCompletedGuests } from "@/hooks/use-guest-musicians";
 import { useActiveTrivia, useCreateTriviaSession, useUpdateTriviaStatus, useAdvanceTriviaQuestion, useDeleteAllTrivia } from "@/hooks/use-trivia";
 import { usePreSignups, useDeletePreSignup, useClearPreSignups } from "@/hooks/use-presignup";
 import { NeonButton } from "@/components/NeonButton";
-import { CreateSongDialog } from "@/components/CreateSongDialog";
+import { CreateSongDialog, EditSongDialog } from "@/components/CreateSongDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -504,9 +505,7 @@ function SongsManager() {
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [subTab, setSubTab] = useState<"list" | "groups">("list");
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editGroup, setEditGroup] = useState("");
-  const [editGenre, setEditGenre] = useState("");
+  const [editSong, setEditSong] = useState<Song | undefined>(undefined);
 
   const handleDelete = (id: number) => {
     if (confirm("Delete this song?")) {
@@ -761,43 +760,10 @@ function SongsManager() {
                   <td className="px-4 py-3 font-medium">{song.title}</td>
                   <td className="px-4 py-3 text-muted-foreground">{song.artist}</td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    {editingId === song.id ? (
-                      <div className="flex items-center gap-1.5">
-                        <select
-                          value={editGroup}
-                          onChange={e => setEditGroup(e.target.value)}
-                          className="bg-white/10 border border-white/20 rounded text-xs px-2 py-1 text-white/90"
-                        >
-                          <option value="">—</option>
-                          {groups?.map(g => <option key={g.group} value={g.group}>{g.group}</option>)}
-                        </select>
-                        <button
-                          onClick={() => {
-                            updateSong({ id: song.id, data: { group: editGroup || null } });
-                            setEditingId(null);
-                          }}
-                          className="text-green-400 hover:text-green-300 text-xs"
-                          disabled={isUpdating}
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-white text-xs">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                    {song.group ? (
+                      <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs border border-primary/20">{song.group}</span>
                     ) : (
-                      <button
-                        onClick={() => { setEditingId(song.id); setEditGroup(song.group || ""); }}
-                        className="inline-flex items-center gap-1 group cursor-pointer"
-                        disabled={isUpdating}
-                      >
-                        {song.group ? (
-                          <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs border border-primary/20 group-hover:bg-primary/20 transition-colors">{song.group}</span>
-                        ) : (
-                          <span className="text-white/20 text-xs group-hover:text-white/60 transition-colors">—</span>
-                        )}
-                        <Pencil className="w-3 h-3 text-white/0 group-hover:text-white/40 transition-colors" />
-                      </button>
+                      <span className="text-white/20 text-xs">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
@@ -809,9 +775,20 @@ function SongsManager() {
                     ) : <span className="text-white/20 text-xs">—</span>}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleDelete(song.id)} className="text-muted-foreground hover:text-red-400 p-2 rounded-full transition-all">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <EditSongDialog song={song} onOpenChange={() => setEditSong(undefined)}>
+                        <button
+                          onClick={() => setEditSong(song)}
+                          className="text-muted-foreground hover:text-primary p-2 rounded-full transition-all"
+                          data-testid={`button-edit-song-${song.id}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </EditSongDialog>
+                      <button onClick={() => handleDelete(song.id)} className="text-muted-foreground hover:text-red-400 p-2 rounded-full transition-all" data-testid={`button-delete-song-${song.id}`}>
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
