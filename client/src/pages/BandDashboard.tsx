@@ -757,7 +757,14 @@ function SongsManager() {
                       {song.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </td>
-                  <td className="px-4 py-3 font-medium">{song.title}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <div className="flex items-center gap-2">
+                      {song.title}
+                      {song.isDuet && (
+                        <span className="px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-400 text-[10px] border border-pink-500/30 font-semibold">Duet</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{song.artist}</td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     {song.group ? (

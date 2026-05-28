@@ -100,6 +100,11 @@ export default function SongBook() {
                       <span className="text-[13px] leading-snug text-white/90 group-hover:text-white transition-colors truncate">
                         {song.title}
                       </span>
+                      {song.isDuet && (
+                        <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider px-1 py-0.5 rounded bg-pink-500/15 text-pink-400 border border-pink-500/30">
+                          Duet
+                        </span>
+                      )}
                     </div>
                     {song.spotifyUrl && (
                       <a

@@ -13,6 +13,7 @@ export const songs = pgTable("songs", {
   spotifyUrl: text("spotify_url"),
   genre: text("genre"),
   group: text("song_group"),
+  isDuet: boolean("is_duet").default(false).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

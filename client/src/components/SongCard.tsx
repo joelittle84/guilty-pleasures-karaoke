@@ -37,6 +37,11 @@ export function SongCard({ song, isSelected, onToggle, readOnly = false }: SongC
           </p>
 
           <div className="flex items-center gap-2 mt-2 flex-wrap">
+            {song.isDuet && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-400 border border-pink-500/30 font-semibold">
+                Duet
+              </span>
+            )}
             {song.genre && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-white/60 border border-white/5">
                 {song.genre}

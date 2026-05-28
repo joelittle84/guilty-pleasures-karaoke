@@ -26,6 +26,7 @@ function SongDialogContent({ song, onOpenChange }: { song?: Song; onOpenChange?:
     genre: "",
     group: "",
     spotifyUrl: "",
+    isDuet: false,
   });
 
   useEffect(() => {
@@ -36,6 +37,7 @@ function SongDialogContent({ song, onOpenChange }: { song?: Song; onOpenChange?:
         genre: song.genre || "",
         group: song.group || "",
         spotifyUrl: song.spotifyUrl || "",
+        isDuet: song.isDuet || false,
       });
     }
   }, [song]);
@@ -58,7 +60,7 @@ function SongDialogContent({ song, onOpenChange }: { song?: Song; onOpenChange?:
       createSong(formData, {
         onSuccess: () => {
           onOpenChange?.(false);
-          setFormData({ title: "", artist: "", genre: "", group: "", spotifyUrl: "" });
+          setFormData({ title: "", artist: "", genre: "", group: "", spotifyUrl: "", isDuet: false });
           toast({ title: "Song Added", description: `${formData.title} added to the catalog.` });
         },
         onError: (err) => {
@@ -123,6 +125,18 @@ function SongDialogContent({ song, onOpenChange }: { song?: Song; onOpenChange?:
           placeholder="https://..."
           className="bg-black/20 border-white/10 focus:border-primary/50"
         />
+      </div>
+      <div className="flex items-center gap-3 pt-1">
+        <input
+          id={isEdit ? "edit-isDuet" : "isDuet"}
+          type="checkbox"
+          checked={formData.isDuet}
+          onChange={e => setFormData(prev => ({ ...prev, isDuet: e.target.checked }))}
+          className="w-4 h-4 accent-primary cursor-pointer"
+        />
+        <Label htmlFor={isEdit ? "edit-isDuet" : "isDuet"} className="text-sm cursor-pointer">
+          This is a Duet
+        </Label>
       </div>
 
       <div className="pt-4 flex justify-end gap-2">
