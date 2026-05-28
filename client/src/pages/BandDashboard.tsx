@@ -760,6 +760,9 @@ function SongsManager() {
                   <td className="px-4 py-3 font-medium">
                     <div className="flex items-center gap-2">
                       {song.title}
+                      {song.isSolo && (
+                        <span className="px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 text-[10px] border border-sky-500/30 font-semibold">Solo</span>
+                      )}
                       {song.isDuet && (
                         <span className="px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-400 text-[10px] border border-pink-500/30 font-semibold">Duet</span>
                       )}

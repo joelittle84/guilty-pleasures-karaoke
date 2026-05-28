@@ -7,6 +7,7 @@ import { type Song } from "@shared/schema";
 import { useState, useEffect } from "react";
 import { Plus, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface SongDialogProps {
   song?: Song;
@@ -27,6 +28,7 @@ function SongDialogContent({ song, onOpenChange }: { song?: Song; onOpenChange?:
     group: "",
     spotifyUrl: "",
     isDuet: false,
+    isSolo: false,
   });
 
   useEffect(() => {
@@ -38,6 +40,7 @@ function SongDialogContent({ song, onOpenChange }: { song?: Song; onOpenChange?:
         group: song.group || "",
         spotifyUrl: song.spotifyUrl || "",
         isDuet: song.isDuet || false,
+        isSolo: song.isSolo || false,
       });
     }
   }, [song]);
@@ -60,7 +63,7 @@ function SongDialogContent({ song, onOpenChange }: { song?: Song; onOpenChange?:
       createSong(formData, {
         onSuccess: () => {
           onOpenChange?.(false);
-          setFormData({ title: "", artist: "", genre: "", group: "", spotifyUrl: "", isDuet: false });
+          setFormData({ title: "", artist: "", genre: "", group: "", spotifyUrl: "", isDuet: false, isSolo: false });
           toast({ title: "Song Added", description: `${formData.title} added to the catalog.` });
         },
         onError: (err) => {
@@ -127,16 +130,30 @@ function SongDialogContent({ song, onOpenChange }: { song?: Song; onOpenChange?:
         />
       </div>
       <div className="flex items-center gap-3 pt-1">
-        <input
-          id={isEdit ? "edit-isDuet" : "isDuet"}
-          type="checkbox"
-          checked={formData.isDuet}
-          onChange={e => setFormData(prev => ({ ...prev, isDuet: e.target.checked }))}
-          className="w-4 h-4 accent-primary cursor-pointer"
-        />
-        <Label htmlFor={isEdit ? "edit-isDuet" : "isDuet"} className="text-sm cursor-pointer">
-          This is a Duet
-        </Label>
+        <button
+          type="button"
+          onClick={() => setFormData(prev => ({ ...prev, isDuet: !prev.isDuet }))}
+          className={cn(
+            "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all",
+            formData.isDuet
+              ? "bg-pink-500/20 text-pink-400 border-pink-500/40"
+              : "bg-white/5 text-white/40 border-white/10 hover:border-white/20"
+          )}
+        >
+          Duet
+        </button>
+        <button
+          type="button"
+          onClick={() => setFormData(prev => ({ ...prev, isSolo: !prev.isSolo }))}
+          className={cn(
+            "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all",
+            formData.isSolo
+              ? "bg-sky-500/20 text-sky-400 border-sky-500/40"
+              : "bg-white/5 text-white/40 border-white/10 hover:border-white/20"
+          )}
+        >
+          Solo
+        </button>
       </div>
 
       <div className="pt-4 flex justify-end gap-2">
