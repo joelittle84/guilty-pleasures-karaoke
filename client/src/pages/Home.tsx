@@ -83,7 +83,7 @@ export default function Home() {
   const { data: guitarInstructions } = useSettings("guitar_instructions");
   const { data: businessName } = useSettings("business_name");
   const { data: businessInfo } = useSettings("business_info");
-  const { data: logoUrl } = useSettings("logo_url");
+  const { data: logoUrl, isLoading: isLogoLoading } = useSettings("logo_url");
   const { data: logoSize } = useSettings("logo_size");
   const { data: logoSpacing } = useSettings("logo_spacing");
   const { data: artworkUrl } = useSettings("hero_artwork_url");
@@ -267,15 +267,18 @@ export default function Home() {
         <div className="max-w-md mx-auto text-center relative z-10">
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5 }}>
             {(() => {
+              if (isLogoLoading) {
+                return <div className="h-28 md:h-40 mx-auto mb-2 animate-pulse bg-white/5 rounded-lg w-full max-w-[280px]" />;
+              }
               if (logoUrl?.value) {
                 const s = logoSize?.value || "medium";
                 const sp = logoSpacing?.value || "medium";
-                const spacingMap: Record<string, string> = { none: "mb-0", small: "mb-1", medium: "mb-4", large: "mb-8" };
-                const spClass = spacingMap[sp] || "mb-4";
-                let logoClass = `h-24 md:h-32 mx-auto ${spClass} drop-shadow-xl`;
-                if (s === "small") logoClass = `h-16 md:h-20 mx-auto ${spClass} drop-shadow-xl`;
-                else if (s === "large") logoClass = `h-32 md:h-48 mx-auto ${spClass} drop-shadow-xl`;
-                else if (s === "full") logoClass = `w-full max-w-md mx-auto ${spClass} drop-shadow-xl`;
+                const spacingMap: Record<string, string> = { none: "mb-0", small: "mb-0.5", medium: "mb-1", large: "mb-2" };
+                const spClass = spacingMap[sp] || "mb-1";
+                let logoClass = `h-28 md:h-40 mx-auto ${spClass} drop-shadow-xl`;
+                if (s === "small") logoClass = `h-20 md:h-28 mx-auto ${spClass} drop-shadow-xl`;
+                else if (s === "large") logoClass = `h-40 md:h-56 mx-auto ${spClass} drop-shadow-xl`;
+                else if (s === "full") logoClass = `w-full max-w-lg mx-auto ${spClass} drop-shadow-xl`;
                 return <img src={logoUrl.value} className={logoClass} alt="Logo" />;
               }
               if (businessName?.value) {
