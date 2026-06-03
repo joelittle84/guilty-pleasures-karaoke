@@ -238,6 +238,23 @@ export default function Home() {
           </div>
         )}
 
+        {/* Tip the Band — top right */}
+        {hasTips && (tipsVisibleSetting?.value !== "false") && (
+          <div className="absolute top-3 right-3 z-20">
+            <motion.button
+              initial={{ y: -10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              onClick={() => setShowTips(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-400 hover:text-green-300 text-xs font-semibold transition-all backdrop-blur-sm"
+              data-testid="button-tip-band"
+            >
+              <DollarSign className="w-3.5 h-3.5" />
+              Tip the Band!
+            </motion.button>
+          </div>
+        )}
+
         {artworkUrl?.value ? (
           <div className="absolute top-0 left-0 w-full h-full z-0">
             <img src={artworkUrl.value} className="w-full h-full object-cover opacity-30" alt="Hero" />
@@ -302,22 +319,6 @@ export default function Home() {
                   <Guitar className="w-4 h-4 mr-2" /> Guest Guitarist
                 </NeonButton>
               </motion.div>
-            )}
-            {/* Tip the Band — floating top-right, gated by settings */}
-            {hasTips && (tipsVisibleSetting?.value !== "false") && (
-              <div className="absolute top-3 right-3 z-20">
-                <motion.button
-                  initial={{ y: -10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  onClick={() => setShowTips(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-400 hover:text-green-300 text-xs font-semibold transition-all backdrop-blur-sm"
-                  data-testid="button-tip-band"
-                >
-                  <DollarSign className="w-3.5 h-3.5" />
-                  Tip the Band!
-                </motion.button>
-              </div>
             )}
             {activeTrivia && (activeTrivia.status === "waiting" || activeTrivia.status === "active") && (
               <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }}>
