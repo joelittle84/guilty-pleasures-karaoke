@@ -98,6 +98,7 @@ export default function Home() {
   const { mutate: createPreSignup, isPending: isPreSigningUp } = useCreatePreSignup();
   const { data: bookingEnabled } = useSettings("booking_enabled");
   const { data: bookingTitle } = useSettings("booking_title");
+  const { data: tipsVisibleSetting } = useSettings("tips_visible");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -302,12 +303,21 @@ export default function Home() {
                 </NeonButton>
               </motion.div>
             )}
-            {hasTips && (
-              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.35 }}>
-                <NeonButton onClick={() => setShowTips(true)} variant="outline" size="sm" className="rounded-full border-green-500/30 bg-green-500/5 text-green-400">
-                  <DollarSign className="w-4 h-4 mr-2" /> Tip the Band!
-                </NeonButton>
-              </motion.div>
+            {/* Tip the Band — floating top-right, gated by settings */}
+            {hasTips && (tipsVisibleSetting?.value !== "false") && (
+              <div className="absolute top-3 right-3 z-20">
+                <motion.button
+                  initial={{ y: -10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  onClick={() => setShowTips(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-400 hover:text-green-300 text-xs font-semibold transition-all backdrop-blur-sm"
+                  data-testid="button-tip-band"
+                >
+                  <DollarSign className="w-3.5 h-3.5" />
+                  Tip the Band!
+                </motion.button>
+              </div>
             )}
             {activeTrivia && (activeTrivia.status === "waiting" || activeTrivia.status === "active") && (
               <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }}>

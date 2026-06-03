@@ -221,6 +221,7 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   const { data: logoSpacingSetting } = useSettings("logo_spacing");
   const { data: artworkUrl } = useSettings("hero_artwork_url");
   const { data: signupsEnabledSetting } = useSettings("signups_enabled");
+  const { data: tipsVisibleSetting } = useSettings("tips_visible");
   const { mutate: updateSetting, mutateAsync: updateSettingAsync, isPending: isSaving } = useUpdateSetting();
   const { toast } = useToast();
 
@@ -272,10 +273,17 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
   };
 
   const signupsEnabled = signupsEnabledSetting?.value !== "false";
+  const tipsVisible = tipsVisibleSetting?.value !== "false";
   const toggleSignups = () => {
     const newVal = signupsEnabled ? "false" : "true";
     updateSetting({ key: "signups_enabled", value: newVal }, {
       onSuccess: () => toast({ title: `Signups ${newVal === "true" ? "opened" : "closed"}` })
+    });
+  };
+  const toggleTipsVisible = () => {
+    const newVal = tipsVisible ? "false" : "true";
+    updateSetting({ key: "tips_visible", value: newVal }, {
+      onSuccess: () => toast({ title: `Tips ${newVal === "true" ? "visible" : "hidden"}` })
     });
   };
 
@@ -435,8 +443,11 @@ function SettingsView({ shareUrl }: { shareUrl: string }) {
         </CardContent>
       </Card>
 
-      <Card className="bg-card border-white/10">
-        <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-green-400" /> Tip the Band!</CardTitle></CardHeader>
+      <Card className={cn("border-2 transition-colors", tipsVisible ? "border-green-500/40 bg-green-950/10" : "border-white/10")}>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-green-400" /> Tip the Band!</CardTitle>
+          <Switch checked={tipsVisible} onCheckedChange={toggleTipsVisible} data-testid="switch-tips-visible" />
+        </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">Your payment handles are stored encrypted. They'll appear on the public page so fans can tip you.</p>
           <div className="space-y-2"><label className="text-sm font-medium">Venmo Username</label><Input value={venmo} onChange={e => setVenmo(e.target.value)} placeholder="@your-venmo" className="bg-black/40 border-white/10" /></div>
