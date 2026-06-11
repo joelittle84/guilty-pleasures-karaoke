@@ -1133,7 +1133,7 @@ function QueueView() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-4 space-y-4">
+            <CardContent className="pt-4 space-y-4 pb-2">
               <div className="space-y-2">
                 {req.songs.map((item, i) => (
                   <div key={i} className="flex items-center gap-3 bg-black/20 p-2 rounded-lg border border-white/5 group">
@@ -1153,37 +1153,38 @@ function QueueView() {
                   </div>
                 ))}
               </div>
-              <div className="pt-3 flex gap-5">
-                {req.status === 'pending' ? (
-                  <>
-                    <button
-                      onClick={() => handleStatus(req.id, 'rejected')}
-                      data-testid={`button-reject-${req.id}`}
-                      className="flex-1 flex flex-col items-center justify-center gap-2 py-5 rounded-2xl bg-red-950/40 border border-red-500/20 hover:bg-red-950/70 hover:border-red-500/50 active:scale-95 transition-all text-red-400"
-                    >
-                      <X className="w-6 h-6" />
-                      <span className="text-xs font-bold tracking-wide">REJECT</span>
-                    </button>
-                    <button
-                      onClick={() => handleStatus(req.id, 'approved')}
-                      data-testid={`button-approve-${req.id}`}
-                      className="flex-1 flex flex-col items-center justify-center gap-2 py-5 rounded-2xl bg-primary/10 border border-primary/20 hover:bg-primary/25 hover:border-primary/50 active:scale-95 transition-all text-primary"
-                    >
-                      <Check className="w-6 h-6" />
-                      <span className="text-xs font-bold tracking-wide">APPROVE</span>
-                    </button>
-                  </>
-                ) : (
+            </CardContent>
+            {/* Corner-positioned action buttons to prevent accidental taps while scrolling */}
+            <div className="px-6 pb-4 pt-1">
+              {req.status === 'pending' ? (
+                <div className="flex justify-between items-end gap-4">
+                  <button
+                    onClick={() => handleStatus(req.id, 'rejected')}
+                    data-testid={`button-reject-${req.id}`}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-950/30 border border-red-500/20 hover:bg-red-950/60 hover:border-red-500/40 active:scale-95 transition-all text-red-400 text-xs font-bold"
+                  >
+                    <X className="w-4 h-4" /> Reject
+                  </button>
+                  <button
+                    onClick={() => handleStatus(req.id, 'approved')}
+                    data-testid={`button-approve-${req.id}`}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/25 hover:border-primary/50 active:scale-95 transition-all text-primary text-xs font-bold"
+                  >
+                    <Check className="w-4 h-4" /> Approve
+                  </button>
+                </div>
+              ) : (
+                <div className="flex justify-start">
                   <button
                     onClick={() => handleStatus(req.id, 'completed')}
                     data-testid={`button-complete-${req.id}`}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600/20 border border-green-500/30 hover:bg-green-600/35 active:scale-95 transition-all text-green-400 font-bold text-sm"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600/15 border border-green-500/20 hover:bg-green-600/30 active:scale-95 transition-all text-green-400 text-[11px] font-semibold"
                   >
-                    <Check className="w-4 h-4" /> Mark Completed
+                    <Check className="w-3.5 h-3.5" /> Done
                   </button>
-                )}
-              </div>
-            </CardContent>
+                </div>
+              )}
+            </div>
           </Card>
         ))
       )}
