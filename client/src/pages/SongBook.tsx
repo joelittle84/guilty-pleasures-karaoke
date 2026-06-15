@@ -103,34 +103,34 @@ export default function SongBook() {
                 <p>No songs found</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-3 print:grid-cols-2">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-2 gap-y-2 print:grid-cols-2">
                 {grouped.map(([artist, artistSongs]) => (
-                  <div key={artist} className="space-y-0 rounded-lg border border-white/10 bg-white/[0.02] overflow-hidden">
+                  <div key={artist} className="space-y-0 rounded-md border border-white/10 bg-white/[0.02] overflow-hidden">
                     {/* Artist header — compact for mobile */}
-                    <div className="flex items-center gap-1.5 px-2.5 py-2 bg-white/5 border-b border-white/10">
-                      <span className="text-[11px] font-bold text-white truncate">{artist}</span>
-                      <span className="shrink-0 text-[9px] font-mono text-muted-foreground/50 bg-black/30 px-1 py-0 rounded">{artistSongs.length}</span>
+                    <div className="flex items-center gap-1 px-2 py-1.5 bg-white/5 border-b border-white/10">
+                      <span className="text-[10px] font-bold text-white truncate">{artist}</span>
+                      <span className="shrink-0 text-[8px] font-mono text-muted-foreground/50 bg-black/30 px-1 py-0 rounded">{artistSongs.length}</span>
                     </div>
-                    {/* Song rows — compact, readable */}
+                    {/* Song rows — ultra compact, readable */}
                     {artistSongs.map((song, i) => (
                       <div
                         key={song.id}
                         className={cn(
-                          "flex items-baseline gap-1.5 px-2 py-1 group transition-colors",
+                          "flex items-baseline gap-1 px-1.5 py-0.5 group transition-colors",
                           i % 2 === 0 ? "bg-white/[0.01]" : "bg-white/[0.04]",
                           "hover:bg-white/[0.07]"
                         )}
                       >
-                        <span className="text-[9px] text-muted-foreground/30 font-mono w-3 shrink-0 text-right">{i + 1}.</span>
+                        <span className="text-[8px] text-muted-foreground/30 font-mono w-2.5 shrink-0 text-right">{i + 1}.</span>
                         <div className="min-w-0 flex-1 flex items-baseline gap-1">
-                          <span className="text-[11px] leading-snug text-white/90 group-hover:text-white transition-colors truncate">
+                          <span className="text-[10px] leading-tight text-white/90 group-hover:text-white transition-colors truncate">
                             {song.title}
                           </span>
                           {song.isSolo && (
-                            <span className="shrink-0 text-[8px] font-semibold uppercase tracking-wider px-0.5 py-0 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30">S</span>
+                            <span className="shrink-0 text-[7px] font-semibold uppercase tracking-wider px-0.5 py-0 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30">S</span>
                           )}
                           {song.isDuet && (
-                            <span className="shrink-0 text-[8px] font-semibold uppercase tracking-wider px-0.5 py-0 rounded bg-pink-500/15 text-pink-400 border border-pink-500/30">D</span>
+                            <span className="shrink-0 text-[7px] font-semibold uppercase tracking-wider px-0.5 py-0 rounded bg-pink-500/15 text-pink-400 border border-pink-500/30">D</span>
                           )}
                         </div>
                         {song.spotifyUrl && (
@@ -139,7 +139,7 @@ export default function SongBook() {
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={e => e.stopPropagation()}
-                            className="shrink-0 text-[9px] text-green-400/70 hover:text-green-400 transition-colors underline underline-offset-2"
+                            className="shrink-0 text-[8px] text-green-400/70 hover:text-green-400 transition-colors underline underline-offset-2"
                           >
                             ▶
                           </a>
