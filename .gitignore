@@ -5,10 +5,9 @@ server/public
 vite.config.ts.*
 *.tar.gz
 exports/
-screenshots/
 .agents/
 .env
 .env.local
 *.csv
-*.tar.gz
 database-backup.*
+
