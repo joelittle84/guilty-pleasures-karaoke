@@ -25,6 +25,8 @@ import {
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState, useRef } from "react";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { hapticLight, hapticMedium, hapticSuccess } from "@/lib/haptic";
 import TipTapEditor from "@/components/TipTapEditor";
 import { RequestWithSongs, TriviaSessionPublic } from "@shared/schema";
 import { cn } from "@/lib/utils";
@@ -104,6 +106,18 @@ export default function BandDashboard() {
   const { user, isLoading: authLoading } = useAuth();
   const [bandAuthed, setBandAuthed] = useState<boolean | null>(null);
   const [authMethod, setAuthMethod] = useState<"replit" | "pin" | null>(null);
+  const [activeTab, setActiveTab] = useState("queue");
+
+  // Keyboard shortcuts for dashboard tabs
+  useKeyboardShortcuts({
+    "ctrl+1": () => { setActiveTab("queue"); hapticLight(); },
+    "ctrl+2": () => { setActiveTab("musicians"); hapticLight(); },
+    "ctrl+3": () => { setActiveTab("songs"); hapticLight(); },
+    "ctrl+4": () => { setActiveTab("presignup"); hapticLight(); },
+    "ctrl+5": () => { setActiveTab("trivia"); hapticLight(); },
+    "ctrl+6": () => { setActiveTab("booking"); hapticLight(); },
+    "ctrl+7": () => { setActiveTab("settings"); hapticLight(); },
+  });
 
   // Check band auth status (Replit OR PIN session)
   useEffect(() => {
@@ -159,7 +173,7 @@ export default function BandDashboard() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="queue" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-transparent border-0 p-0 h-auto flex-col gap-2 items-stretch">
             {/* Primary actions — large, easy to tap during the show */}
             <div className="grid grid-cols-2 gap-2">
@@ -175,22 +189,22 @@ export default function BandDashboard() {
                 <Guitar className="w-5 h-5 mr-2" /> Musicians
               </TabsTrigger>
             </div>
-            {/* Secondary actions */}
-            <div className="grid grid-cols-5 gap-1.5">
-              <TabsTrigger value="songs" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
-                <Music className="w-3.5 h-3.5 mr-1" /> Songs
+            {/* Secondary actions — 2-row grid on mobile, single row on desktop */}
+            <div className="grid grid-cols-3 md:flex gap-1.5">
+              <TabsTrigger value="songs" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2.5 px-2 text-sm font-medium whitespace-nowrap min-w-0 flex-1 justify-center">
+                <Music className="w-4 h-4 mr-1.5" /> Songs
               </TabsTrigger>
-              <TabsTrigger value="presignup" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
-                <CalendarCheck className="w-3.5 h-3.5 mr-1" /> Pre-Signup
+              <TabsTrigger value="presignup" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2.5 px-2 text-sm font-medium whitespace-nowrap min-w-0 flex-1 justify-center">
+                <CalendarCheck className="w-4 h-4 mr-1.5" /> Pre-Signup
               </TabsTrigger>
-              <TabsTrigger value="trivia" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
-                <Trophy className="w-3.5 h-3.5 mr-1" /> Trivia
+              <TabsTrigger value="trivia" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2.5 px-2 text-sm font-medium whitespace-nowrap min-w-0 flex-1 justify-center">
+                <Trophy className="w-4 h-4 mr-1.5" /> Trivia
               </TabsTrigger>
-              <TabsTrigger value="booking" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
-                <Briefcase className="w-3.5 h-3.5 mr-1" /> Booking
+              <TabsTrigger value="booking" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2.5 px-2 text-sm font-medium whitespace-nowrap min-w-0 flex-1 justify-center col-span-1 md:col-auto">
+                <Briefcase className="w-4 h-4 mr-1.5" /> Booking
               </TabsTrigger>
-              <TabsTrigger value="settings" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2 text-xs font-medium">
-                <SettingsIcon className="w-3.5 h-3.5 mr-1" /> Settings
+              <TabsTrigger value="settings" className="data-[state=active]:bg-white/15 data-[state=active]:text-white bg-white/5 border border-white/10 rounded-lg py-2.5 px-2 text-sm font-medium whitespace-nowrap min-w-0 flex-1 justify-center col-span-2 md:col-auto">
+                <SettingsIcon className="w-4 h-4 mr-1.5" /> Settings
               </TabsTrigger>
             </div>
           </TabsList>
@@ -738,11 +752,13 @@ function SongsManager() {
           </select>
         )}
       </div>
-      <ScrollArea className="h-[560px] rounded-xl border border-white/10 bg-black/20">
+      <div className="h-[560px] rounded-xl border border-white/10 bg-black/20 overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>
         ) : (
-          <table className="w-full text-sm text-left">
+          <>
+          <div className="hidden md:block h-full overflow-auto">
+            <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-white/5 sticky top-0 backdrop-blur-md">
               <tr>
                 <th className="px-3 py-3 w-8">
@@ -815,8 +831,51 @@ function SongsManager() {
               ))}
             </tbody>
           </table>
-        )}
-      </ScrollArea>
+        </div>
+
+        {/* Mobile card list */}
+        <div className="md:hidden h-full overflow-y-auto space-y-2 p-3">
+          {filtered.map(song => (
+            <div key={song.id} className={cn("rounded-xl border border-white/5 p-3 space-y-2 transition-colors", !song.isActive && "opacity-40", selected.has(song.id) ? "bg-primary/10 border-primary/30" : "bg-white/[0.02] border-white/5")}>
+              <div className="flex items-start gap-2">
+                <input type="checkbox" checked={selected.has(song.id)} onChange={() => toggleOne(song.id)} className="w-4 h-4 accent-primary cursor-pointer mt-0.5" data-testid={`checkbox-song-${song.id}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">{song.title}</span>
+                    {song.isSolo && <span className="px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 text-[10px] border border-sky-500/30 font-semibold">Solo</span>}
+                    {song.isDuet && <span className="px-1.5 py-0.5 rounded-full bg-pink-500/15 text-pink-400 text-[10px] border border-pink-500/30 font-semibold">Duet</span>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{song.artist}</p>
+                  {song.group && <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] border border-primary/20">{song.group}</span>}
+                  {song.genre && <span className="inline-block ml-1 mt-1 px-2 py-0.5 rounded-full bg-white/10 text-[10px] text-muted-foreground">{song.genre}</span>}
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/5">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => handleToggle(song.id)} className={cn("p-2 rounded-full transition-colors", song.isActive ? "text-primary hover:text-primary/70" : "text-muted-foreground hover:text-white")}>
+                    {song.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
+                  {song.spotifyUrl && (
+                    <a href={song.spotifyUrl} target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300 text-xs underline underline-offset-2">Preview</a>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <EditSongDialog song={song} onOpenChange={() => setEditSong(undefined)}>
+                    <button onClick={() => setEditSong(song)} className="text-muted-foreground hover:text-primary p-2 rounded-full transition-all" data-testid={`button-edit-song-${song.id}`}>
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </EditSongDialog>
+                  <button onClick={() => handleDelete(song.id)} className="text-muted-foreground hover:text-red-400 p-2 rounded-full transition-all" data-testid={`button-delete-song-${song.id}`}>
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </>
+      )}
+    </div>
     </div>
   );
 }
@@ -831,7 +890,7 @@ function GuestMusicianManager() {
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
 
   const handleStatus = (id: number, status: string) => {
-    updateStatus({ id, status }, { onSuccess: () => toast({ title: `Signup ${status}` }) });
+    updateStatus({ id, status }, { onSuccess: () => { toast({ title: `Signup ${status}` }); hapticSuccess(); } });
   };
 
   const handleDismiss = (id: number) => {
@@ -1090,11 +1149,11 @@ function QueueView() {
   const { toast } = useToast();
 
   const handleStatus = (id: number, status: 'approved' | 'completed' | 'rejected') => {
-    updateStatus({ id, status }, { onSuccess: () => toast({ title: `Request ${status}` }) });
+    updateStatus({ id, status }, { onSuccess: () => { toast({ title: `Request ${status}` }); hapticSuccess(); } });
   };
 
   const handleRemoveSong = (requestId: number, songId: number, songTitle: string) => {
-    removeSong({ requestId, songId }, { onSuccess: () => toast({ title: `"${songTitle}" removed from request` }) });
+    removeSong({ requestId, songId }, { onSuccess: () => { toast({ title: `"${songTitle}" removed from request` }); hapticLight(); } });
   };
 
   if (isLoading) return <div className="text-center py-12"><Loader2 className="w-8 h-8 animate-spin mx-auto opacity-50" /></div>;
@@ -1146,7 +1205,7 @@ function QueueView() {
                       onClick={() => handleRemoveSong(req.id, item.song.id, item.song.title)}
                       title="Remove this song"
                       data-testid={`button-remove-song-${req.id}-${item.song.id}`}
-                      className="shrink-0 p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      className="shrink-0 p-1.5 rounded text-muted-foreground hover:text-red-400 hover:bg-red-950/30 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>

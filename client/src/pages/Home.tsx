@@ -11,11 +11,12 @@ import { NeonButton } from "@/components/NeonButton";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Check, Guitar, QrCode, DollarSign, Clock, Trophy, Sparkles, Users, CalendarCheck, BookOpen } from "lucide-react";
+import { Search, Mic2, Music2, X, ListMusic, User, CheckCircle2, Check, Guitar, QrCode, DollarSign, Clock, Trophy, Sparkles, Users, CalendarCheck, BookOpen, Plus } from "lucide-react";
 import { Song, TriviaSessionPublic } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link } from "wouter";
+import { hapticLight, hapticSuccess, hapticError } from "@/lib/haptic";
 import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
 
@@ -139,12 +140,15 @@ export default function Home() {
   const handleToggleSong = (song: Song) => {
     if (selectedSongs.find(s => s.id === song.id)) {
       setSelectedSongs(prev => prev.filter(s => s.id !== song.id));
+      hapticLight();
     } else {
       if (selectedSongs.length >= 3) {
         toast({ title: "Limit Reached", description: "You can only select up to 3 songs.", variant: "destructive" });
+        hapticError();
         return;
       }
       setSelectedSongs(prev => [...prev, song]);
+      hapticLight();
     }
   };
 
@@ -161,9 +165,11 @@ export default function Home() {
         setShowSuccess(true);
         setSelectedSongs([]);
         setParticipantName("");
+        hapticSuccess();
       },
       onError: (err) => {
         toast({ title: "Submission Failed", description: err.message || "Could not submit request. Try again.", variant: "destructive" });
+        hapticError();
       }
     });
   };
@@ -264,46 +270,53 @@ export default function Home() {
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-primary/10 to-transparent pointer-events-none" />
         )}
 
-        <div className="max-w-md mx-auto text-center relative z-10">
+        {/* Logo Section - unconstrained width for maximum impact */}
+        <div className="w-full text-center relative z-10 pt-4">
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5 }}>
             {(() => {
               if (isLogoLoading) {
-                return <div className="h-28 md:h-40 mx-auto mb-2 animate-pulse bg-white/5 rounded-lg w-full max-w-[280px]" />;
+                return <div className="h-40 md:h-56 mx-auto mb-2 animate-pulse bg-white/5 rounded-lg w-full max-w-[320px]" />;
               }
               if (logoUrl?.value) {
                 const s = logoSize?.value || "medium";
                 const sp = logoSpacing?.value || "medium";
-                const spacingMap: Record<string, string> = { none: "mb-0", small: "mb-0.5", medium: "mb-1", large: "mb-2" };
-                const spClass = spacingMap[sp] || "mb-1";
-                let logoClass = `h-28 md:h-40 mx-auto ${spClass} drop-shadow-xl`;
-                if (s === "small") logoClass = `h-20 md:h-28 mx-auto ${spClass} drop-shadow-xl`;
-                else if (s === "large") logoClass = `h-40 md:h-56 mx-auto ${spClass} drop-shadow-xl`;
-                else if (s === "full") logoClass = `w-full max-w-lg mx-auto ${spClass} drop-shadow-xl`;
-                return <img src={logoUrl.value} className={logoClass} alt="Logo" />;
+                let logoClass = `h-80 md:h-[22rem] mx-auto drop-shadow-[0_0_30px_rgba(255,255,255,0.15)] logo-pulse`;
+                if (s === "small") logoClass = `h-64 md:h-72 mx-auto drop-shadow-[0_0_20px_rgba(255,255,255,0.12)] logo-pulse`;
+                else if (s === "large") logoClass = `h-[28rem] md:h-[32rem] mx-auto drop-shadow-[0_0_40px_rgba(255,255,255,0.2)] logo-pulse`;
+                else if (s === "full") logoClass = `w-full max-w-3xl mx-auto drop-shadow-[0_0_40px_rgba(255,255,255,0.2)] logo-pulse`;
+                return (
+                  <div className="relative inline-block w-full leading-[0] -mb-10">
+                    <div className="absolute inset-0 rounded-full bg-primary/10 blur-3xl scale-125 pointer-events-none" />
+                    <img src={logoUrl.value} className={logoClass + " relative z-10"} alt="Logo" />
+                  </div>
+                );
               }
               if (businessName?.value) {
                 const words = businessName.value.trim().split(/\s+/);
                 const line1 = words.slice(0, 2).join(" ");
                 const line2 = words.slice(2).join(" ");
                 return (
-                  <h1 className="text-4xl md:text-5xl font-display font-black mb-2 leading-tight">
+                  <h1 className="text-6xl md:text-7xl font-display font-black mb-2 leading-tight">
                     <span className="block text-white text-glow-multicolor">{line1}</span>
                     {line2 && <span className="block text-primary text-glow mt-1">{line2}</span>}
                   </h1>
                 );
               }
               return (
-                <h1 className="text-4xl md:text-5xl font-display font-black mb-2">
-                  <span className="text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/70 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">LIVE BAND</span>
+                <h1 className="text-6xl md:text-7xl font-display font-black mb-2">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/70 drop-shadow-[0_0_25px_rgba(255,255,255,0.4)]">LIVE BAND</span>
                   <span className="block text-primary text-glow mt-1">KARAOKE</span>
                 </h1>
               );
             })()}
-            <p className="text-muted-foreground font-medium text-lg">
+            <p className="text-muted-foreground font-medium text-lg mt-0">
               {businessInfo?.value || "You're the star. We're the band."}
             </p>
           </motion.div>
+        </div>
 
+        {/* Content Section - constrained width */}
+        <div className="max-w-md mx-auto text-center relative z-10">
           {/* Action buttons */}
           <div className="flex flex-wrap justify-center gap-2 mt-6">
             {preSignupConfig?.isOpen && (
@@ -363,7 +376,17 @@ export default function Home() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 data-testid="input-song-search"
+                autoFocus
               />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-white transition-colors"
+                  data-testid="button-clear-search"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
             </div>
             {(artists.length > 0 || genres.length > 0) && (
               <div className="grid grid-cols-2 gap-2">
@@ -371,7 +394,10 @@ export default function Home() {
                   value={artistFilter}
                   onChange={e => setArtistFilter(e.target.value)}
                   data-testid="select-artist-filter"
-                  className="w-full h-9 px-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
+                  className={cn(
+                    "w-full h-9 px-3 bg-white/5 border rounded-xl text-sm appearance-none cursor-pointer focus:outline-none focus:border-primary/50",
+                    artistFilter !== "all" ? "border-primary/50 text-white" : "border-white/10 text-white/80"
+                  )}
                 >
                   <option value="all">All Artists</option>
                   {artists.map(a => <option key={a} value={a}>{a}</option>)}
@@ -380,7 +406,10 @@ export default function Home() {
                   value={genreFilter}
                   onChange={e => setGenreFilter(e.target.value)}
                   data-testid="select-genre-filter"
-                  className="w-full h-9 px-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white/80 appearance-none cursor-pointer focus:outline-none focus:border-primary/50"
+                  className={cn(
+                    "w-full h-9 px-3 bg-white/5 border rounded-xl text-sm appearance-none cursor-pointer focus:outline-none focus:border-primary/50",
+                    genreFilter !== "all" ? "border-primary/50 text-white" : "border-white/10 text-white/80"
+                  )}
                 >
                   <option value="all">All Genres</option>
                   {genres.map(g => <option key={g} value={g!}>{g}</option>)}
@@ -499,7 +528,7 @@ export default function Home() {
                   )}
                   <Input value={preSignupSearch} onChange={e => setPreSignupSearch(e.target.value)} placeholder="Search songs..." className="bg-black/40 border-white/10 text-sm" />
                   {preSignupSearch.trim() && (
-                    <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg border border-white/10 bg-black/30 p-1">
+                    <div className="max-h-60 overflow-y-auto space-y-1 rounded-lg border border-white/10 bg-black/30 p-1">
                       {(allSongs || []).filter(s => s.title.toLowerCase().includes(preSignupSearch.toLowerCase()) || s.artist.toLowerCase().includes(preSignupSearch.toLowerCase())).slice(0, 20).map(s => {
                         const picked = !!preSignupSongs.find(ps => ps.id === s.id);
                         return (
@@ -805,6 +834,13 @@ export default function Home() {
                 <span>You're first in line — get ready!</span>
               </div>
             )}
+            <NeonButton
+              onClick={() => { setShowSuccess(false); setSelectedSongs([]); setParticipantName(""); }}
+              className="w-full"
+              data-testid="button-request-another"
+            >
+              <Plus className="w-4 h-4 mr-2" /> Request Another Song
+            </NeonButton>
           </div>
           <div className="pt-4">
             <NeonButton onClick={() => setShowSuccess(false)} variant="outline" className="w-full">Close</NeonButton>

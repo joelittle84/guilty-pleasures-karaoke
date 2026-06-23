@@ -105,7 +105,15 @@ export default function Booking() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-8 space-y-10">
+      <main className="max-w-3xl mx-auto px-4 py-8 space-y-10 relative">
+        {/* Scroll to top */}
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-4 right-4 z-50 p-3 bg-white/10 border border-white/10 rounded-full shadow-lg hover:bg-white/20 transition-colors md:hidden"
+          aria-label="Scroll to top"
+        >
+          <ArrowLeft className="w-5 h-5 rotate-90" />
+        </button>
 
         {/* Bio */}
         {page.bio && page.bio !== "<p></p>" && (
